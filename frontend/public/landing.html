@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BharatLLM — India's Smartest AI in Every Language.</title>
+  <meta name="description" content="Meet BharatLLM, India's public AI assistant. Ask questions, learn new things, and get help in Tamil, Hindi, Telugu, Kannada, Malayalam, and 18 more Indian languages.">
+  <meta property="og:title" content="BharatLLM — India's Smartest AI in Every Language.">
+  <meta property="og:description" content="Meet BharatLLM, India's public AI assistant.">
+  <meta property="og:image" content="/og-image.jpg">
+  <meta property="og:url" content="https://bharatllm.in">
+  <meta name="twitter:card" content="summary_large_image">
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --ink: #0A0F1E;
+      --paper: #F5F4F0;
+      --saffron: #E87B2D;
+      --saffron-lt: #FDF0E3;
+      --text-on-dark: #E8E6E0;
+      --text-on-light: #1A1A2E;
+      --muted: #8892A4;
+      --border-dark: #1E2740;
+      --border-light: #E0DDD6;
+      --terminal: #0D1421;
+      --terminal-glow: rgba(232,123,45,0.08);
+
+      --font-display: 'Syne', sans-serif;
+      --font-body: 'Inter', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: var(--font-body);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      background: var(--ink);
+      color: var(--text-on-dark);
+      overflow-x: hidden;
+    }
+    :focus-visible { outline: 2px solid var(--saffron); outline-offset: 3px; }
+    a { text-decoration: none; color: inherit; }
+
+    /* TYPOGRAPHY */
+    h1, h2, h3 { font-family: var(--font-display); }
+    .h1-display { font-size: clamp(48px, 7vw, 88px); font-weight: 800; line-height: 1.1; }
+    .h2-display { font-size: clamp(32px, 4vw, 52px); font-weight: 700; line-height: 1.2; }
+    .h3-display { font-size: 20px; font-weight: 700; line-height: 1.3; }
+    .body-large { font-size: 18px; font-weight: 400; line-height: 1.7; }
+    .body-regular { font-size: 16px; font-weight: 400; line-height: 1.6; }
+    .caption { font-size: 13px; font-weight: 400; color: var(--muted); }
+    .mono { font-family: var(--font-mono); font-size: 14px; }
+
+    /* LAYOUT UTILS */
+    .container { max-width: 1120px; margin: 0 auto; padding: 96px 24px; }
+    @media (max-width: 768px) { .container { padding: 64px 20px; } }
+
+    .bg-ink { background: var(--ink); color: var(--text-on-dark); }
+    .bg-paper { background: var(--paper); color: var(--text-on-light); }
+
+    .reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.5s ease, transform 0.5s ease; }
+    .reveal.active { opacity: 1; transform: translateY(0); }
+    
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+      .reveal { opacity: 1; transform: translateY(0); }
+    }
+
+    /* SECTION 1 — NAVIGATION */
+    nav {
+      position: sticky; top: 0; z-index: 100;
+      background: rgba(10, 15, 30, 0.92); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border-dark); height: 64px; padding: 0 32px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .logo { display: flex; align-items: center; gap: 8px; }
+    .logo-mark { width: 32px; height: 32px; fill: var(--saffron); }
+    .logo-text { font-family: var(--font-display); font-weight: 700; font-size: 18px; color: #E8E6E0; }
+    .logo-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .nav-links { display: flex; gap: 32px; }
+    .nav-links a { font-size: 14px; color: var(--muted); transition: color 0.2s; }
+    .nav-links a:hover, .nav-links a.active { color: #E8E6E0; }
+    .nav-cta {
+      background: var(--saffron); color: #0A0F1E; padding: 10px 20px; border-radius: 6px;
+      font-weight: 500; font-size: 14px; border: none; cursor: pointer; transition: all 0.2s;
+    }
+    .nav-cta:hover { background: #D4701F; transform: translateY(-1px); }
+    .hamburger { display: none; background: none; border: none; cursor: pointer; }
+    .hamburger svg { stroke: var(--saffron); width: 24px; height: 24px; stroke-width: 2; }
+    
+    .mobile-menu {
+      display: none; position: absolute; top: 64px; left: 0; right: 0;
+      background: var(--ink); border-bottom: 1px solid var(--border-dark);
+      padding: 24px; flex-direction: column; gap: 24px; max-height: 0; overflow: hidden;
+      transition: max-height 0.3s ease;
+    }
+    .mobile-menu.open { display: flex; max-height: 400px; }
+    @media (max-width: 768px) {
+      .nav-links, .nav-cta.desktop-cta { display: none; }
+      .hamburger { display: block; }
+      nav { padding: 0 20px; }
+    }
+
+    /* SECTION 2 — HERO */
+    .hero-container {
+      display: grid; grid-template-columns: 1fr 1.1fr; gap: 64px; align-items: center;
+      min-height: 88vh; padding-top: 120px;
+    }
+    @media (max-width: 1023px) { .hero-container { grid-template-columns: 1fr; padding-top: 80px; } }
+    .hero-eyebrow {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: var(--saffron-lt); border: 1px solid #E8C99A; border-radius: 20px;
+      padding: 4px 14px; font-weight: 500; font-size: 12px; color: #92400E; margin-bottom: 24px;
+    }
+    .pulse-dot {
+      width: 4px; height: 4px; background: var(--saffron); border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(232,123,45,0.7); } 70% { box-shadow: 0 0 0 6px rgba(232,123,45,0); } 100% { box-shadow: 0 0 0 0 rgba(232,123,45,0); } }
+    
+    .hero-h1 { font-family: var(--font-display); font-size: clamp(48px, 7vw, 88px); font-weight: 800; line-height: 1.1; color: #E8E6E0; }
+    .hero-h1 span.glow { color: var(--saffron); text-shadow: 0 0 40px rgba(232,123,45,0.3); display: block; }
+    .hero-sub { margin-top: 24px; font-size: 18px; opacity: 0.82; line-height: 1.7; max-width: 480px; color: var(--text-on-dark); }
+    
+    .cta-row { margin-top: 40px; display: flex; gap: 16px; flex-wrap: wrap; }
+    .cta-primary {
+      background: var(--saffron); color: #0A0F1E; padding: 14px 28px; border-radius: 8px;
+      font-weight: 600; font-size: 16px; border: none; cursor: pointer;
+      box-shadow: 0 8px 24px rgba(232,123,45,0.3); transition: all 0.2s;
+    }
+    .cta-primary:hover { background: #D4701F; transform: translateY(-2px); }
+    .cta-secondary {
+      background: transparent; color: var(--text-on-dark); padding: 14px 28px; border-radius: 8px;
+      border: 1px solid var(--border-dark); font-weight: 500; font-size: 16px; cursor: pointer; transition: all 0.2s;
+    }
+    .cta-secondary:hover { border-color: var(--saffron); color: var(--saffron); }
+    
+    .trust-row { margin-top: 48px; display: flex; align-items: center; gap: 24px; }
+    .trust-line { width: 40px; height: 1px; background: var(--border-dark); }
+    .trust-text { font-size: 12px; color: var(--muted); }
+    .trust-logos { display: flex; gap: 16px; }
+    .trust-logo { width: 80px; height: 24px; background: var(--border-dark); border-radius: 4px; opacity: 0.5; }
+
+    /* TERMINAL */
+    .terminal {
+      background: var(--terminal); border: 1px solid var(--border-dark); border-radius: 14px;
+      box-shadow: 0 32px 80px rgba(0,0,0,0.5), 0 0 0 1px var(--border-dark), inset 0 0 80px var(--terminal-glow);
+      overflow: hidden; max-width: 540px; width: 100%;
+    }
+    .term-header { background: #141929; padding: 14px 18px; display: flex; align-items: center; }
+    .term-dots { display: flex; gap: 6px; }
+    .term-dot { width: 10px; height: 10px; border-radius: 50%; }
+    .dot-red { background: #FF5F57; }
+    .dot-yel { background: #FEBC2E; }
+    .dot-grn { background: #28C840; }
+    .term-title { flex: 1; text-align: center; font-family: var(--font-mono); font-size: 11px; color: var(--muted); padding-right: 48px; }
+    
+    .term-body { padding: 24px; min-height: 280px; display: flex; flex-direction: column; }
+    .term-lang {
+      align-self: flex-start; background: rgba(232,123,45,0.12); border: 1px solid rgba(232,123,45,0.2);
+      border-radius: 4px; padding: 2px 8px; font-family: var(--font-mono); font-size: 11px; color: var(--saffron);
+      margin-bottom: 16px; transition: opacity 0.3s, transform 0.3s;
+    }
+    .term-question-wrapper { font-family: var(--font-mono); font-size: 14px; color: #E8E6E0; margin-bottom: 16px; min-height: 20px;}
+    .term-q-prefix { color: var(--saffron); margin-right: 8px; }
+    .cursor-blink { display: inline-block; width: 8px; height: 16px; background: #E8E6E0; vertical-align: middle; animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0; } }
+    
+    .term-thinking { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-bottom: 16px; display: none; }
+    .term-thinking .dots { color: var(--saffron); animation: blink 1s infinite; }
+    
+    .term-answer { font-family: var(--font-body); font-size: 14px; color: #C8C4BC; line-height: 1.6; display: none; min-height: 80px;}
+    .term-answer mark { background: rgba(232,123,45,0.15); color: var(--saffron); border-radius: 2px; padding: 0 2px;}
+    
+    .term-source {
+      border-top: 1px solid var(--border-dark); margin-top: 16px; padding-top: 12px;
+      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+      display: flex; align-items: center; gap: 8px; opacity: 0; transition: opacity 0.3s;
+    }
+    .term-confidence { color: #22C55E; margin-left: auto; }
+
+    /* SECTION 3 — LANGUAGES */
+    .section-title { text-align: center; margin-bottom: 56px; }
+    .eyebrow { font-size: 13px; font-weight: 500; color: var(--saffron); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; display: block; text-align: center; }
+    .h2-title { font-family: var(--font-display); font-size: clamp(32px, 4vw, 52px); font-weight: 700; margin-bottom: 16px; color: var(--text-on-dark); }
+    .sub-title { font-size: 17px; color: var(--muted); max-width: 560px; margin: 0 auto; line-height: 1.6; }
+    
+    .lang-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
+    .lang-card {
+      background: var(--border-dark); border: 1px solid #1E2740; border-radius: 10px; padding: 16px 14px;
+      display: flex; flex-direction: column; gap: 6px; cursor: default; transition: all 0.2s;
+    }
+    .lang-card:hover { border-color: rgba(232,123,45,0.4); background: rgba(232,123,45,0.04); transform: translateY(-2px); }
+    .lang-script { font-family: system-ui, -apple-system, sans-serif; font-size: 18px; color: #E8E6E0; font-weight: 500; }
+    .lang-eng { font-size: 12px; color: var(--muted); }
+    .lang-caption { margin-top: 32px; text-align: center; font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
+
+    /* SECTION 4 — HOW IT WORKS */
+    .bg-paper .eyebrow { text-align: left; }
+    .bg-paper .h2-title { text-align: left; margin-bottom: 16px; color: var(--text-on-light); }
+    .bg-paper .sub-title { text-align: left; margin: 0; max-width: 100%; margin-bottom: 56px; }
+    
+    .process-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 32px; position: relative; }
+    @media (max-width: 768px) { .process-grid { grid-template-columns: 1fr; } }
+    .step-card {
+      background: #FFFFFF; border: 1px solid var(--border-light); border-radius: 12px; padding: 28px 24px; position: relative;
+    }
+    .step-num {
+      font-family: var(--font-display); font-size: 72px; font-weight: 800; color: #E8E6E0; opacity: 0.5;
+      position: absolute; top: -16px; left: 20px; line-height: 1; pointer-events: none;
+    }
+    .step-icon { width: 32px; height: 32px; stroke: var(--saffron); stroke-width: 1.5; fill: none; margin-bottom: 16px; position: relative; z-index: 1; }
+    .step-title { font-family: var(--font-display); font-size: 18px; font-weight: 700; color: var(--text-on-light); margin-bottom: 12px; position: relative; z-index: 1; }
+    .step-body { font-size: 15px; color: #4A4A5A; line-height: 1.6; position: relative; z-index: 1; }
+    .step-arrow {
+      position: absolute; top: 50%; right: -28px; transform: translateY(-50%);
+      width: 24px; height: 24px; stroke: var(--saffron); stroke-width: 2; fill: none; opacity: 0.5;
+    }
+    @media (max-width: 768px) { .step-arrow { display: none; } }
+
+    /* SECTION 5 — FEATURES */
+    .feature-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px;
+      background: var(--border-dark); border: 1px solid var(--border-dark); margin-top: 56px;
+    }
+    @media (max-width: 768px) { .feature-grid { grid-template-columns: 1fr; } }
+    .feature-cell {
+      background: var(--ink); padding: 36px 32px; transition: background 0.2s;
+    }
+    .feature-cell:hover { background: rgba(255,255,255,0.02); }
+    .feat-icon { width: 24px; height: 24px; stroke: var(--saffron); stroke-width: 2; fill: none; margin-bottom: 20px; }
+    .feat-title { font-size: 18px; font-weight: 600; color: #E8E6E0; margin-bottom: 12px; }
+    .feat-body { font-size: 15px; color: var(--muted); line-height: 1.6; }
+
+    /* SECTION 6 — USE CASES */
+    .tabs-nav {
+      display: flex; border-bottom: 1px solid var(--border-light); margin-bottom: 32px;
+      overflow-x: auto; scrollbar-width: none;
+    }
+    .tabs-nav::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      background: none; border: none; padding: 16px 24px; font-size: 16px; font-family: var(--font-body);
+      color: var(--muted); cursor: pointer; white-space: nowrap; position: relative; transition: color 0.2s;
+    }
+    .tab-btn.active { color: var(--text-on-light); font-weight: 600; }
+    .tab-btn.active::after {
+      content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 3px; background: var(--saffron);
+    }
+    .tab-content { display: none; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; min-height: 240px; }
+    .tab-content.active { display: grid; animation: fadeIn 0.4s ease; }
+    @media (max-width: 768px) { .tab-content { grid-template-columns: 1fr; gap: 32px; } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    
+    .uc-problem { font-size: 18px; font-weight: 500; color: var(--text-on-light); margin-bottom: 16px; }
+    .uc-solution { font-size: 16px; color: #4A4A5A; line-height: 1.6; margin-bottom: 24px; }
+    .uc-stats { font-family: var(--font-mono); font-size: 13px; color: #92400E; background: var(--saffron-lt); padding: 8px 12px; border-radius: 6px; display: inline-block; }
+    
+    .uc-mockup {
+      background: var(--terminal); border-radius: 12px; padding: 20px; box-shadow: 0 12px 32px rgba(0,0,0,0.1);
+      border: 1px solid var(--border-dark);
+    }
+    .uc-mockup .term-header { padding: 0 0 16px 0; background: transparent; border-bottom: 1px solid var(--border-dark); margin-bottom: 16px;}
+    .uc-mockup .term-question-wrapper { font-size: 13px; color: #E8E6E0; margin-bottom: 16px;}
+    .uc-mockup .term-answer { display: block; font-size: 13px; min-height: auto; margin-bottom: 12px; color: #C8C4BC; line-height: 1.6;}
+    .uc-mockup .term-source { opacity: 1; margin-top: 12px; padding-top: 12px;}
+
+    /* SECTION 7 — PRICING */
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-top: 56px; }
+    @media (max-width: 1023px) { .pricing-grid { grid-template-columns: 1fr; max-width: 400px; margin-left: auto; margin-right: auto; } }
+    .price-card {
+      background: var(--border-dark); border: 1px solid var(--border-dark); border-radius: 14px; padding: 32px 28px; position: relative;
+      display: flex; flex-direction: column;
+    }
+    .price-card.popular { border-color: var(--saffron); border-width: 1.5px; }
+    .popular-badge {
+      position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+      background: var(--saffron); color: #0A0F1E; font-weight: 600; font-size: 11px; padding: 3px 12px; border-radius: 20px;
+      white-space: nowrap;
+    }
+    .price-amt { font-family: var(--font-display); font-size: 32px; font-weight: 700; color: #E8E6E0; margin-bottom: 4px; }
+    .price-label { font-size: 14px; color: var(--muted); margin-bottom: 16px; }
+    .price-for { font-size: 13px; color: #E8E6E0; margin-bottom: 24px; line-height: 1.5; min-height: 40px;}
+    .price-features { list-style: none; margin-bottom: 32px; flex: 1; }
+    .price-features li { display: flex; gap: 12px; font-size: 14px; color: var(--muted); margin-bottom: 12px; line-height: 1.4; }
+    .price-features li::before { content: '✓'; color: var(--saffron); font-weight: bold; }
+    .price-btn {
+      display: block; text-align: center; padding: 12px; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: all 0.2s;
+    }
+    .btn-outline { background: transparent; border: 1px solid var(--saffron); color: var(--saffron); text-decoration: none;}
+    .btn-outline:hover { background: rgba(232,123,45,0.1); }
+    .btn-filled { background: var(--saffron); border: 1px solid var(--saffron); color: #0A0F1E; text-decoration: none;}
+    .btn-filled:hover { background: #D4701F; }
+    .price-footer { text-align: center; font-size: 13px; color: var(--muted); margin-top: 32px; }
+
+    /* SECTION 8 — FORM */
+    .form-wrapper { max-width: 520px; margin: 0 auto; margin-top: 48px; }
+    .form-group { margin-bottom: 20px; }
+    .form-label { display: block; font-weight: 500; font-size: 13px; color: var(--text-on-light); margin-bottom: 6px; }
+    .form-input, .form-select, .form-textarea {
+      background: #FFFFFF; border: 1px solid var(--border-light); border-radius: 8px; padding: 12px 16px;
+      font-family: var(--font-body); font-size: 15px; color: var(--text-on-light); width: 100%; transition: all 0.2s;
+    }
+    .form-input:focus, .form-select:focus, .form-textarea:focus {
+      outline: none; border-color: var(--saffron); box-shadow: 0 0 0 3px rgba(232,123,45,0.1);
+    }
+    .form-submit {
+      background: var(--saffron); color: #0A0F1E; padding: 14px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;
+      border: none; width: 100%; cursor: pointer; transition: background 0.2s; margin-top: 8px;
+    }
+    .form-submit:hover { background: #D4701F; }
+    .form-success { text-align: center; padding: 48px 0; display: none; }
+    .form-success svg { width: 48px; height: 48px; fill: var(--saffron); margin-bottom: 24px; }
+    .form-success h3 { font-family: var(--font-display); font-size: 22px; font-weight: 700; color: var(--text-on-light); margin-bottom: 12px; }
+    .form-success p { font-size: 15px; color: #4A4A5A; }
+    .trust-signals { display: flex; justify-content: center; gap: 40px; margin-top: 48px; flex-wrap: wrap; }
+    .trust-signal { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+
+    /* SECTION 9 — FOOTER */
+    footer { border-top: 1px solid var(--border-dark); padding-top: 64px; }
+    .footer-grid { display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 48px; margin-bottom: 64px; }
+    @media (max-width: 1023px) { .footer-grid { grid-template-columns: 1fr 1fr; } }
+    @media (max-width: 600px) { .footer-grid { grid-template-columns: 1fr; } }
+    .footer-col h4 { font-family: var(--font-body); font-size: 12px; font-weight: 600; color: #E8E6E0; text-transform: uppercase; margin-bottom: 20px; }
+    .footer-links { list-style: none; display: flex; flex-direction: column; gap: 12px; }
+    .footer-links a { font-size: 13px; color: var(--muted); transition: color 0.2s; }
+    .footer-links a:hover { color: #E8E6E0; }
+    .footer-text { font-size: 13px; color: var(--muted); line-height: 1.6; margin-top: 16px; }
+    .footer-bottom { border-top: 1px solid var(--border-dark); padding: 24px 0; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+    .footer-bottom p { font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+
+  <!-- SECTION 1 — NAVIGATION -->
+  <nav aria-label="Main Navigation">
+    <div class="logo">
+      <svg class="logo-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+        <path d="M6 8 h14 a5 5 0 0 1 0 10 H6 z" />
+        <path d="M6 14 h16 a5 5 0 0 1 0 10 H6 z" />
+      </svg>
+      <div>
+        <div class="logo-text">BharatLLM</div>
+        <div class="logo-sub">by Budstech</div>
+      </div>
+    </div>
+    
+    <div class="nav-links">
+      <a href="#languages">Languages</a>
+      <a href="#features">Features</a>
+      <a href="#usecases">For You</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#footer">About</a>
+    </div>
+    
+    <button class="nav-cta desktop-cta" onclick="window.location.href='/';">Open Playground</button>
+    
+    <button class="hamburger" aria-label="Toggle menu">
+      <svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="3" y1="12" x2="21" y2="12"></line>
+        <line x1="3" y1="6" x2="21" y2="6"></line>
+        <line x1="3" y1="18" x2="21" y2="18"></line>
+      </svg>
+    </button>
+    
+    <div class="mobile-menu">
+      <a href="#languages">Languages</a>
+      <a href="#features">Features</a>
+      <a href="#usecases">For You</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#footer">About</a>
+      <button class="nav-cta" onclick="window.location.href='/';">Open Playground</button>
+    </div>
+  </nav>
+
+  <!-- SECTION 2 — HERO -->
+  <section class="bg-ink" aria-label="Hero">
+    <div class="container hero-container">
+      
+      <div class="hero-left">
+        <div class="hero-eyebrow">
+          <div class="pulse-dot"></div>
+          Now available in 22 Indian languages
+        </div>
+        <h1 class="hero-h1">
+          Every Indian
+          <span class="glow">Question.</span>
+          Answered.
+        </h1>
+        <p class="hero-sub">
+          BharatLLM is India's smartest AI assistant. From understanding complex government schemes to helping with your studies, it answers any question in your own language, instantly, with verified sources.
+        </p>
+        
+        <div class="cta-row">
+          <button class="cta-primary" onclick="window.location.href='/';">Start chatting in Playground</button>
+          <button class="cta-secondary" onclick="document.getElementById('how-it-works').scrollIntoView();">See how it works ↓</button>
+        </div>
+        
+        <div class="trust-row">
+          <div class="trust-line"></div>
+          <span class="trust-text">Trusted by</span>
+          <div class="trust-logos">
+            <div class="trust-logo"></div>
+            <div class="trust-logo"></div>
+            <div class="trust-logo"></div>
+          </div>
+          <div class="trust-line"></div>
+        </div>
+      </div>
+      
+      <div class="hero-right">
+        <div class="terminal">
+          <div class="term-header">
+            <div class="term-dots">
+              <div class="term-dot dot-red"></div>
+              <div class="term-dot dot-yel"></div>
+              <div class="term-dot dot-grn"></div>
+            </div>
+            <div class="term-title">BharatLLM — Public AI Assistant</div>
+          </div>
+          <div class="term-body">
+            <div id="term-lang" class="term-lang">Tamil Query</div>
+            
+            <div class="term-question-wrapper">
+              <span class="term-q-prefix">&gt;</span>
+              <span id="term-question"></span><span id="term-cursor" class="cursor-blink"></span>
+            </div>
+            
+            <div id="term-thinking" class="term-thinking">
+              <span id="term-thinking-text">Searching documents</span><span class="dots">···</span>
+            </div>
+            
+            <div id="term-answer" class="term-answer"></div>
+            
+            <div id="term-source-wrapper" class="term-source">
+              <svg viewBox="0 0 24 24" fill="none" stroke="var(--saffron)" stroke-width="2" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+              <span id="term-source-file"></span>
+              <span class="term-confidence">Confidence: <span id="term-confidence-val"></span></span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+    </div>
+  </section>
+
+  <!-- SECTION 3 — LANGUAGE SHOWCASE -->
+  <section id="languages" class="bg-ink" aria-label="Language Showcase">
+    <div class="container reveal">
+      <div class="section-title">
+        <span class="eyebrow">Language Intelligence</span>
+        <h2 class="h2-title">One question. Every language.</h2>
+        <p class="sub-title">BharatLLM understands and responds in all 22 Indian scheduled languages. Ask in Tamil, receive in Tamil. Ask in Hindi, receive in Hindi.</p>
+      </div>
+      
+      <div class="lang-grid">
+        <div class="lang-card"><span class="lang-script">தமிழ்</span><span class="lang-eng">Tamil</span></div>
+        <div class="lang-card"><span class="lang-script">हिंदी</span><span class="lang-eng">Hindi</span></div>
+        <div class="lang-card"><span class="lang-script">తెలుగు</span><span class="lang-eng">Telugu</span></div>
+        <div class="lang-card"><span class="lang-script">ಕನ್ನಡ</span><span class="lang-eng">Kannada</span></div>
+        <div class="lang-card"><span class="lang-script">മലയാളം</span><span class="lang-eng">Malayalam</span></div>
+        <div class="lang-card"><span class="lang-script">বাংলা</span><span class="lang-eng">Bengali</span></div>
+        <div class="lang-card"><span class="lang-script">मराठी</span><span class="lang-eng">Marathi</span></div>
+        <div class="lang-card"><span class="lang-script">ગુજરાતી</span><span class="lang-eng">Gujarati</span></div>
+        <div class="lang-card"><span class="lang-script">ਪੰਜਾਬੀ</span><span class="lang-eng">Punjabi</span></div>
+        <div class="lang-card"><span class="lang-script">ଓଡ଼ିଆ</span><span class="lang-eng">Odia</span></div>
+        <div class="lang-card"><span class="lang-script">অসমীয়া</span><span class="lang-eng">Assamese</span></div>
+        <div class="lang-card"><span class="lang-script">اردو</span><span class="lang-eng">Urdu</span></div>
+        <div class="lang-card"><span class="lang-script">संस्कृत</span><span class="lang-eng">Sanskrit</span></div>
+        <div class="lang-card"><span class="lang-script">नेपाली</span><span class="lang-eng">Nepali</span></div>
+        <div class="lang-card"><span class="lang-script">মৈতৈলোন</span><span class="lang-eng">Manipuri</span></div>
+        <div class="lang-card"><span class="lang-script">कोंकणी</span><span class="lang-eng">Konkani</span></div>
+        <div class="lang-card"><span class="lang-script">डोगरी</span><span class="lang-eng">Dogri</span></div>
+        <div class="lang-card"><span class="lang-script">मैथिली</span><span class="lang-eng">Maithili</span></div>
+        <div class="lang-card"><span class="lang-script">सिंधी</span><span class="lang-eng">Sindhi</span></div>
+        <div class="lang-card"><span class="lang-script">बोडो</span><span class="lang-eng">Bodo</span></div>
+        <div class="lang-card"><span class="lang-script">संताली</span><span class="lang-eng">Santali</span></div>
+        <div class="lang-card"><span class="lang-script">English</span><span class="lang-eng">English</span></div>
+      </div>
+      
+      <p class="lang-caption">Built on BAAI/BGE-M3 · Tesseract OCR with all Indian script packs</p>
+    </div>
+  </section>
+
+  <!-- SECTION 4 — HOW IT WORKS -->
+  <section id="how-it-works" class="bg-paper" aria-label="How it works">
+    <div class="container reveal">
+      <span class="eyebrow">The process</span>
+      <h2 class="h2-title">From complex information to simple answers.</h2>
+      <p class="sub-title">Three things happen when you ask BharatLLM a question.</p>
+      
+      <div class="process-grid">
+        <div class="step-card">
+          <div class="step-num">01</div>
+          <svg class="step-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="8" y1="13" x2="16" y2="13"></line>
+            <line x1="8" y1="17" x2="16" y2="17"></line>
+          </svg>
+          <h3 class="step-title">You Ask Anything</h3>
+          <p class="step-body">Type or speak your question in any of the 22 Indian languages. BharatLLM understands local nuances and dialects perfectly, no matter how complex your query.</p>
+          <svg class="step-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </div>
+        
+        <div class="step-card">
+          <div class="step-num">02</div>
+          <svg class="step-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          <h3 class="step-title">Instant Knowledge</h3>
+          <p class="step-body">It instantly searches through millions of verified Indian documents, news, official sources, and educational materials to find the most accurate information.</p>
+          <svg class="step-arrow" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </div>
+        
+        <div class="step-card">
+          <div class="step-num">03</div>
+          <svg class="step-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+            <polyline points="9 11 12 14 22 4"></polyline>
+          </svg>
+          <h3 class="step-title">Clear Answers</h3>
+          <p class="step-body">You get a simple, easy-to-understand answer in your language, complete with citations so you can verify the facts and trust what you read.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 5 — FEATURE GRID -->
+  <section id="features" class="bg-ink" aria-label="Capabilities">
+    <div class="container reveal">
+      <div class="section-title" style="margin-bottom: 0;">
+        <span class="eyebrow">Capabilities</span>
+        <h2 class="h2-title">An AI built for every Indian.</h2>
+        <p class="sub-title">Not just a chatbot, but a powerful platform designed for India's unique needs.</p>
+      </div>
+      
+      <div class="feature-grid">
+        <div class="feature-cell reveal">
+          <svg class="feat-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          <h4 class="feat-title">Reads in 22 languages</h4>
+          <p class="feat-body">Trained on every Indian script. Tamil, Hindi, Telugu, Kannada, Malayalam, Bengali — you can ask questions and get answers in the language you are most comfortable with.</p>
+        </div>
+        
+        <div class="feature-cell reveal">
+          <svg class="feat-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <h4 class="feat-title">Your Privacy First</h4>
+          <p class="feat-body">We never use your personal conversations to train our public models. Your data belongs to you, with enterprise-grade security ensuring your chats remain completely private.</p>
+        </div>
+        
+        <div class="feature-cell reveal">
+          <svg class="feat-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path><path d="M19 10v2a7 7 0 0 1-14 0v-2"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
+          <h4 class="feat-title">Voice & Text Support</h4>
+          <p class="feat-body">Don't want to type? Just speak to BharatLLM. It understands spoken Hindi, Tamil, Telugu, and more with incredible accuracy, making it accessible to everyone.</p>
+        </div>
+        
+        <div class="feature-cell reveal">
+          <svg class="feat-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><circle cx="12" cy="14" r="2"></circle><path d="M12 16v4"></path></svg>
+          <h4 class="feat-title">Every answer is cited</h4>
+          <p class="feat-body">No hallucinations without accountability. Every factual answer shows the source link so you can verify the information yourself. If the answer is unknown, BharatLLM says so.</p>
+        </div>
+        
+        <div class="feature-cell reveal">
+          <svg class="feat-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path></svg>
+          <h4 class="feat-title">Available Everywhere</h4>
+          <p class="feat-body">Use BharatLLM on our web portal, download the iOS and Android apps, or chat with it directly on WhatsApp and Telegram. Help is always just a tap away.</p>
+        </div>
+        
+        <div class="feature-cell reveal">
+          <svg class="feat-icon" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+          <h4 class="feat-title">Enterprise Ready</h4>
+          <p class="feat-body">While free for citizens, businesses and governments can deploy private instances of BharatLLM on their own secure servers to search through their internal company documents safely.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 6 — USE CASES -->
+  <section id="usecases" class="bg-paper" aria-label="Use Cases">
+    <div class="container reveal">
+      <div class="section-title">
+        <span class="eyebrow">Who uses BharatLLM</span>
+        <h2 class="h2-title">One AI for every Indian.</h2>
+      </div>
+      
+      <div class="tabs-nav" role="tablist">
+        <button class="tab-btn active" role="tab" aria-selected="true" aria-controls="panel-1">Citizens</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-2">Students</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-3">Farmers</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-4">Professionals</button>
+        <button class="tab-btn" role="tab" aria-selected="false" aria-controls="panel-5">Businesses</button>
+      </div>
+      
+      <div class="tabs-content-area">
+        
+        <div id="panel-1" class="tab-content active" role="tabpanel">
+          <div>
+            <h4 class="uc-problem">Applying for government schemes or understanding legal rights is confusing.</h4>
+            <p class="uc-solution">Ask BharatLLM how to apply for a passport, what documents are needed for a driving license, or how to claim health insurance. It guides you step-by-step.</p>
+            <div class="uc-stats">PMJAY · Passport Seva · RTO Guidelines</div>
+          </div>
+          <div class="uc-mockup">
+            <div class="term-header">
+              <div class="term-dots"><div class="term-dot dot-red"></div><div class="term-dot dot-yel"></div><div class="term-dot dot-grn"></div></div>
+            </div>
+            <div class="term-question-wrapper"><span class="term-q-prefix">&gt;</span> पासपोर्ट के लिए क्या दस्तावेज चाहिए?</div>
+            <div class="term-answer">पासपोर्ट आवेदन के लिए आपको 1. <mark>आधार कार्ड</mark> (पते के प्रमाण के लिए) और 2. <mark>पैन कार्ड</mark> या 10वीं की मार्कशीट (जन्म तिथि के लिए) की आवश्यकता होगी।</div>
+            <div class="term-source"><svg viewBox="0 0 24 24" fill="none" stroke="var(--saffron)" stroke-width="2" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Source: Passport_Seva_Guidelines.pdf</div>
+          </div>
+        </div>
+        
+        <div id="panel-2" class="tab-content" role="tabpanel">
+          <div>
+            <h4 class="uc-problem">Finding explanations for complex syllabus topics in regional languages.</h4>
+            <p class="uc-solution">BharatLLM acts as a personal tutor, explaining complex science, history, and math concepts in plain Tamil, Hindi, or Bengali so you can study better.</p>
+            <div class="uc-stats">NCERT · State Board · UPSC & TNPSC</div>
+          </div>
+          <div class="uc-mockup">
+            <div class="term-header">
+              <div class="term-dots"><div class="term-dot dot-red"></div><div class="term-dot dot-yel"></div><div class="term-dot dot-grn"></div></div>
+            </div>
+            <div class="term-question-wrapper"><span class="term-q-prefix">&gt;</span> ஒளிச்சேர்க்கை (Photosynthesis) என்றால் என்ன?</div>
+            <div class="term-answer">தாவரங்கள் சூரிய ஒளி, நீர் மற்றும் காற்றில் உள்ள <mark>கார்பன் டை ஆக்சைடை</mark> பயன்படுத்தி தங்களுக்கு தேவையான உணவை தயாரிக்கும் முறையே ஒளிச்சேர்க்கை எனப்படும்.</div>
+            <div class="term-source"><svg viewBox="0 0 24 24" fill="none" stroke="var(--saffron)" stroke-width="2" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Source: SCERT_Science_Class8.pdf</div>
+          </div>
+        </div>
+
+        <div id="panel-3" class="tab-content" role="tabpanel">
+          <div>
+            <h4 class="uc-problem">Lack of immediate access to weather, crop disease, and subsidy info.</h4>
+            <p class="uc-solution">Farmers can simply send a voice note on WhatsApp to get instant advice on soil health, fertilizer usage, and PM-KISAN updates.</p>
+            <div class="uc-stats">Weather Data · Krishi Vigyan Kendra · PM-KISAN</div>
+          </div>
+          <div class="uc-mockup">
+            <div class="term-header">
+              <div class="term-dots"><div class="term-dot dot-red"></div><div class="term-dot dot-yel"></div><div class="term-dot dot-grn"></div></div>
+            </div>
+            <div class="term-question-wrapper"><span class="term-q-prefix">&gt;</span> పత్తి పంటలో గులాబీ రంగు పురుగును ఎలా నివారించాలి?</div>
+            <div class="term-answer">గులాబీ రంగు పురుగు నివారణకు ఎకరానికి 4 <mark>లింగాకర్షక బుట్టలు</mark> (Pheromone traps) ఏర్పాటు చేయాలి. అవసరమైతే క్వినాల్ ఫాస్ 2.0 మి.లీ లీటరు నీటికి కలిపి పిచికారీ చేయాలి.</div>
+            <div class="term-source"><svg viewBox="0 0 24 24" fill="none" stroke="var(--saffron)" stroke-width="2" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Source: PJTSAU_Cotton_Farming.pdf</div>
+          </div>
+        </div>
+
+        <div id="panel-4" class="tab-content" role="tabpanel">
+          <div>
+            <h4 class="uc-problem">Professionals need an AI that understands Indian context and formats.</h4>
+            <p class="uc-solution">Draft legal notices, write code, or create marketing copy with an AI that understands Indian culture, laws, and business environment.</p>
+            <div class="uc-stats">Coding · Legal Drafting · Content Creation</div>
+          </div>
+          <div class="uc-mockup">
+            <div class="term-header">
+              <div class="term-dots"><div class="term-dot dot-red"></div><div class="term-dot dot-yel"></div><div class="term-dot dot-grn"></div></div>
+            </div>
+            <div class="term-question-wrapper"><span class="term-q-prefix">&gt;</span> Draft an email requesting 2 days of casual leave for a family function.</div>
+            <div class="term-answer">Dear Manager,\n\nI am writing to request <mark>2 days of casual leave</mark> from [Start Date] to [End Date] to attend a family function in my hometown. I have handed over my pending tasks.</div>
+            <div class="term-source"><svg viewBox="0 0 24 24" fill="none" stroke="var(--saffron)" stroke-width="2" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Source: Professional_Templates_DB</div>
+          </div>
+        </div>
+
+        <div id="panel-5" class="tab-content" role="tabpanel">
+          <div>
+            <h4 class="uc-problem">SMBs need affordable AI to handle customer support in regional languages.</h4>
+            <p class="uc-solution">Integrate BharatLLM via API to automate your customer support, process documents, and analyze local market data effortlessly.</p>
+            <div class="uc-stats">API Access · Custom Training · 24/7 Support</div>
+          </div>
+          <div class="uc-mockup">
+            <div class="term-header">
+              <div class="term-dots"><div class="term-dot dot-red"></div><div class="term-dot dot-yel"></div><div class="term-dot dot-grn"></div></div>
+            </div>
+            <div class="term-question-wrapper"><span class="term-q-prefix">&gt;</span> ನಮ್ಮ ಇ-ಕಾಮರ್ಸ್ ವೆಬ್‌ಸೈಟ್‌ನ ರಿಟರ್ನ್ ಪಾಲಿಸಿ ಬಗ್ಗೆ ಗ್ರಾಹಕರಿಗೆ ವಿವರಿಸಿ.</div>
+            <div class="term-answer">ಗ್ರಾಹಕರು ವಸ್ತುಗಳನ್ನು ಸ್ವೀಕರಿಸಿದ <mark>7 ದಿನಗಳ</mark> ಒಳಗೆ ಹಿಂತಿರುಗಿಸಬಹುದು. ವಸ್ತುಗಳು ಬಳಸದೆ ಇರುವ ಸ್ಥಿತಿಯಲ್ಲಿರಬೇಕು. ಮರುಪಾವತಿಯನ್ನು <mark>3-5 ಕೆಲಸದ ದಿನಗಳಲ್ಲಿ</mark> ಮಾಡಲಾಗುತ್ತದೆ.</div>
+            <div class="term-source"><svg viewBox="0 0 24 24" fill="none" stroke="var(--saffron)" stroke-width="2" width="12" height="12"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg> Source: Ecom_Policy_Template</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 7 — PRICING -->
+  <section id="pricing" class="bg-ink" aria-label="Pricing">
+    <div class="container reveal">
+      <div class="section-title">
+        <span class="eyebrow">Simple pricing</span>
+        <h2 class="h2-title">Accessible AI for everyone.</h2>
+        <p class="sub-title">Start chatting for free, upgrade when you need more power.</p>
+      </div>
+      
+      <div class="pricing-grid">
+        <div class="price-card reveal">
+          <div class="price-amt">Free</div>
+          <div class="price-label">₹0 / month</div>
+          <div class="price-for">For everyday citizens and students. Everything you need to get started.</div>
+          <ul class="price-features">
+            <li>Advanced AI in 22 languages</li>
+            <li>Web and Mobile App access</li>
+            <li>Voice inputs</li>
+            <li>Standard response speed</li>
+          </ul>
+          <button class="price-btn btn-outline" onclick="document.getElementById('demo').scrollIntoView();">Sign Up Free</button>
+        </div>
+        
+        <div class="price-card popular reveal">
+          <div class="popular-badge">Most Popular</div>
+          <div class="price-amt">Plus</div>
+          <div class="price-label">₹499 / month</div>
+          <div class="price-for">For professionals and power users who need faster, deeper research.</div>
+          <ul class="price-features">
+            <li>Faster response times</li>
+            <li>Priority access during peak times</li>
+            <li>Document upload and analysis</li>
+            <li>Early access to new features</li>
+          </ul>
+          <button class="price-btn btn-filled" onclick="document.getElementById('demo').scrollIntoView();">Subscribe to Plus</button>
+        </div>
+        
+        <div class="price-card reveal">
+          <div class="price-amt">Enterprise</div>
+          <div class="price-label">Custom Pricing</div>
+          <div class="price-for">For businesses and government departments requiring security and scale.</div>
+          <ul class="price-features">
+            <li>Private deployment options</li>
+            <li>Custom fine-tuning</li>
+            <li>API access for integration</li>
+            <li>Dedicated 24/7 support</li>
+          </ul>
+          <button class="price-btn btn-outline" onclick="document.getElementById('demo').scrollIntoView();">Contact Sales</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 8 — DEMO REQUEST FORM -->
+  <section id="demo" class="bg-paper" aria-label="Request Demo">
+    <div class="container reveal">
+      <div class="section-title">
+        <span class="eyebrow">Join the Revolution</span>
+        <h2 class="h2-title">Experience India's smartest AI.</h2>
+        <p class="sub-title">Sign up for free today and start asking questions in your own language.</p>
+      </div>
+      
+      <div class="form-wrapper">
+        <form id="demo-form">
+          <div class="form-group">
+            <label class="form-label" for="fullname">Full name</label>
+            <input type="text" id="fullname" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="email">Email address</label>
+            <input type="email" id="email" class="form-input" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="role">What best describes you?</label>
+            <select id="role" class="form-select" required>
+              <option value="" disabled selected>Select an option</option>
+              <option value="student">Student</option>
+              <option value="professional">Professional</option>
+              <option value="farmer">Farmer / Agriculture</option>
+              <option value="business">Business Owner</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="lang">Primary Language</label>
+            <select id="lang" class="form-select" required>
+              <option value="" disabled selected>Select your preferred language</option>
+              <option value="tamil">Tamil</option>
+              <option value="hindi">Hindi</option>
+              <option value="telugu">Telugu</option>
+              <option value="kannada">Kannada</option>
+              <option value="malayalam">Malayalam</option>
+              <option value="bengali">Bengali</option>
+              <option value="english">English</option>
+            </select>
+          </div>
+          
+          <button type="submit" class="form-submit">Create Free Account &rarr;</button>
+        </form>
+        
+        <div id="form-success" class="form-success">
+          <svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" fill="none"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          <h3>Welcome to BharatLLM!</h3>
+          <p>Please check your email to verify your account and start chatting.</p>
+        </div>
+      </div>
+      
+      <div class="trust-signals">
+        <div class="trust-signal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+          Your data is private
+        </div>
+        <div class="trust-signal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm1-13h-2v6l5.25 3.15.75-1.23-4-2.37z"></path></svg>
+          Available 24/7
+        </div>
+        <div class="trust-signal">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          India-hosted infrastructure
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECTION 9 — FOOTER -->
+  <footer id="footer" class="bg-ink" aria-label="Footer">
+    <div class="container" style="padding-top: 0; padding-bottom: 0;">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="logo" style="margin-bottom: 16px;">
+            <svg class="logo-mark" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+              <path d="M6 8 h14 a5 5 0 0 1 0 10 H6 z" />
+              <path d="M6 14 h16 a5 5 0 0 1 0 10 H6 z" />
+            </svg>
+            <div class="logo-text">BharatLLM</div>
+          </div>
+          <p class="footer-text">by Budstech Software Consultancy Services<br><br>Sri Arcade, Anna Nagar East, Chennai – 600102<br>contact@budstech.in</p>
+        </div>
+        
+        <div class="footer-col">
+          <h4>Product</h4>
+          <ul class="footer-links">
+            <li><a href="#features">Features</a></li>
+            <li><a href="#how-it-works">How it works</a></li>
+            <li><a href="#pricing">Pricing</a></li>
+            <li><a href="#languages">Languages</a></li>
+            <li><a href="#">Download App</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-col">
+          <h4>For You</h4>
+          <ul class="footer-links">
+            <li><a href="#">Citizens</a></li>
+            <li><a href="#">Students</a></li>
+            <li><a href="#">Farmers</a></li>
+            <li><a href="#">Professionals</a></li>
+            <li><a href="#">Businesses</a></li>
+          </ul>
+        </div>
+        
+        <div class="footer-col">
+          <h4>Company</h4>
+          <ul class="footer-links">
+            <li><a href="#">About Budstech</a></li>
+            <li><a href="#demo">Contact</a></li>
+            <li><a href="#">Privacy Policy</a></li>
+            <li><a href="#">Terms of Service</a></li>
+          </ul>
+        </div>
+      </div>
+      
+      <div class="footer-bottom">
+        <p>&copy; 2025 Budstech Software Consultancy Services. All rights reserved.</p>
+        <p>Built in Chennai, India 🇮🇳</p>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Mobile Menu Toggle
+      const hamburger = document.querySelector('.hamburger');
+      const mobileMenu = document.querySelector('.mobile-menu');
+      hamburger.addEventListener('click', () => {
+        mobileMenu.classList.toggle('open');
+      });
+      // Close mobile menu on link click
+      document.querySelectorAll('.mobile-menu a, .mobile-menu button').forEach(el => {
+        el.addEventListener('click', () => mobileMenu.classList.remove('open'));
+      });
+
+      // Scroll Reveal
+      const reveals = document.querySelectorAll('.reveal');
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('active');
+          }
+        });
+      }, { threshold: 0.1 });
+      reveals.forEach(r => observer.observe(r));
+
+      // Tabs Logic
+      const tabBtns = document.querySelectorAll('.tab-btn');
+      const tabContents = document.querySelectorAll('.tab-content');
+      tabBtns.forEach((btn, index) => {
+        btn.addEventListener('click', () => {
+          tabBtns.forEach(b => b.classList.remove('active'));
+          tabContents.forEach(c => c.classList.remove('active'));
+          btn.classList.add('active');
+          tabContents[index].classList.add('active');
+        });
+      });
+
+      // Form Submission
+      const form = document.getElementById('demo-form');
+      const success = document.getElementById('form-success');
+      if (form) {
+        form.addEventListener('submit', (e) => {
+          e.preventDefault();
+          form.style.display = 'none';
+          success.style.display = 'block';
+        });
+      }
+
+      // Terminal Animation Logic
+      const isReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      
+      const cycleData = [
+        {
+          label: "Tamil Query",
+          question: "CMHIS திட்டத்தில் பயன் பெற தகுதி என்ன?",
+          thinking: "Searching Health documents...",
+          answer: "G.O. Ms. No. 211 படி, குடும்ப வருமானம் ₹72,000-க்கு கீழே இருக்க வேண்டும். ஆதார் அட்டை மற்றும் ரேஷன் கார்டு இணைக்கப்பட்டிருக்க வேண்டும். சிகிச்சை ₹5 லட்சம் வரை வழங்கப்படும்.",
+          source: "GO_MS_211_Health_2023.pdf · Health Dept · 14.03.2023",
+          confidence: "96%"
+        },
+        {
+          label: "Hindi Query",
+          question: "PM-KISAN योजना में किसान कैसे पंजीकरण करें?",
+          thinking: "Searching Agriculture documents...",
+          answer: "PM-KISAN पोर्टल पर आधार कार्ड, बैंक खाता और भूमि रिकॉर्ड के साथ पंजीकरण करें। पात्र किसानों को ₹6,000 प्रति वर्ष तीन किस्तों में मिलता है।",
+          source: "PM_KISAN_Guidelines_2024.pdf · Agriculture Ministry · 01.02.2024",
+          confidence: "93%"
+        },
+        {
+          label: "Telugu Query",
+          question: "ఆంధ్రప్రదేశ్ RERA నమోదు నియమాలు ఏమిటి?",
+          thinking: "Searching RERA documents...",
+          answer: "500 చ.మీ. కంటే ఎక్కువ లేదా 8 అపార్ట్మెంట్లు ఉన్న అన్ని ప్రాజెక్టులు RERA లో నమోదు కావాలి. దరఖాస్తు రుసుము ₹5,000 నుండి ₹10 లక్షల వరకు ఉంటుంది.",
+          source: "AP_RERA_Regulations_2023.pdf · Housing Dept · 15.06.2023",
+          confidence: "91%"
+        },
+        {
+          label: "Kannada Query",
+          question: "ಕರ್ನಾಟಕ ಸರ್ಕಾರಿ ನೌಕರರ ನಿವೃತ್ತಿ ವಯಸ್ಸು ಎಷ್ಟು?",
+          thinking: "Searching Service Rules...",
+          answer: "ಕರ್ನಾಟಕ ಸರ್ಕಾರಿ ನೌಕರರ ನಿವೃತ್ತಿ ವಯಸ್ಸು 60 ವರ್ಷ. 2024 ರ ಆದೇಶದ ಪ್ರಕಾರ ಕೆಲವು ವರ್ಗಗಳಿಗೆ 62 ವರ್ಷ ವಿಸ್ತರಿಸಲಾಗಿದೆ.",
+          source: "KA_Service_Rules_Amendment_2024.pdf · GA Dept · 01.01.2024",
+          confidence: "98%"
+        },
+        {
+          label: "English Query",
+          question: "What is the GST rate on educational services?",
+          thinking: "Searching Finance Ministry circulars...",
+          answer: "As per CBDT Circular No. 11/2023, educational services provided by institutions recognised under the Education Act are exempt from GST. Commercial coaching is taxable at 18%.",
+          source: "CBDT_Circular_11_2023.pdf · Finance Ministry · 20.04.2023",
+          confidence: "95%"
+        }
+      ];
+
+      const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+      const typeText = async (element, text, speed) => {
+        element.textContent = "";
+        if (isReducedMotion) { element.textContent = text; return; }
+        for (let i = 0; i < text.length; i++) {
+          element.textContent += text.charAt(i);
+          await sleep(speed);
+        }
+      };
+
+      const highlightPhrases = (text) => {
+        return text.replace(/(₹[0-9,]+|₹\s[0-9]+(?:\sலட்சம்)?|G\.O\.\s[a-zA-Z\.]+\s[0-9]+|Circular No\.\s[0-9\/]+|500 చ\.మీ\.|18%|60 ವರ್ಷ|62 ವರ್ಷ)/g, '<mark>$1</mark>');
+      };
+
+      const typeWords = async (element, text, speed) => {
+        element.innerHTML = "";
+        if (isReducedMotion) { element.innerHTML = highlightPhrases(text); return; }
+        const words = text.split(" ");
+        let currentHtml = "";
+        for (let i = 0; i < words.length; i++) {
+          currentHtml += words[i] + " ";
+          element.innerHTML = highlightPhrases(currentHtml.trim());
+          await sleep(speed);
+        }
+      };
+
+      const runCycle = async (cycle) => {
+        const langEl = document.getElementById('term-lang');
+        const qEl = document.getElementById('term-question');
+        const cursor = document.getElementById('term-cursor');
+        const thinkEl = document.getElementById('term-thinking');
+        const thinkText = document.getElementById('term-thinking-text');
+        const ansEl = document.getElementById('term-answer');
+        const srcWrapper = document.getElementById('term-source-wrapper');
+        const srcFile = document.getElementById('term-source-file');
+        const srcConf = document.getElementById('term-confidence-val');
+
+        // Fade out previous state
+        langEl.style.opacity = '0';
+        qEl.textContent = '';
+        ansEl.style.display = 'none';
+        srcWrapper.style.opacity = '0';
+        cursor.style.display = 'inline-block';
+        
+        await sleep(300);
+
+        // Update & fade in language badge
+        langEl.textContent = cycle.label;
+        langEl.style.opacity = '1';
+        thinkText.textContent = cycle.thinking;
+
+        // Type out user question
+        await typeText(qEl, cycle.question, 60);
+        await sleep(200); // small pause after typing question
+        cursor.style.display = 'none';
+        
+        await sleep(500);
+
+        // Show thinking state
+        if (!isReducedMotion) {
+          thinkEl.style.display = 'block';
+          await sleep(1200);
+          thinkEl.style.display = 'none';
+        }
+
+        // Show answer word by word
+        ansEl.style.display = 'block';
+        await typeWords(ansEl, cycle.answer, 35);
+
+        await sleep(300);
+
+        // Slide in source citation
+        srcFile.innerHTML = "Source: " + cycle.source;
+        srcConf.textContent = cycle.confidence;
+        srcWrapper.style.opacity = '1';
+
+        // Wait before starting the next cycle
+        await sleep(4000); 
+      };
+
+      const startDemoLoop = async () => {
+        let index = 0;
+        // Small initial delay before starting
+        await sleep(500);
+        while (true) {
+          await runCycle(cycleData[index]);
+          index = (index + 1) % cycleData.length;
+        }
+      };
+
+      // Start the infinite loop
+      startDemoLoop();
+    });
+  </script>
+</body>
+</html>

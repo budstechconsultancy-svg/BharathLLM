@@ -1,0 +1,1541 @@
+# PASTE THE COMPLETE PATCH OR PROMPT CONTENTS HERE
+# Save the file once pasted, and let me know to read and apply it.
+================================================================================
+  INDIA GOVERNMENT LLM — PATCH FILE v3.1
+  Applies on top of: TN_Govt_LLM_Prompts_v3_FINAL.txt
+  Scope:
+    [A] All 17 OODA-validated bug fixes (Critical + Significant + Minor)
+    [B] All 22 Indian scheduled languages support (Devanagari, Tamil,
+        Telugu, Kannada, Malayalam, Bengali, Gujarati, Punjabi, Odia,
+        Assamese, Urdu, Sanskrit, Manipuri, Konkani, Sindhi + more)
+    [C] Dual deployment mode: CENTRAL_GOVT + STATE_GOVT
+        Central: Ministries, Gazette, Acts, Bills, Cabinet Notes
+        State: Departments, G.O.s, Circulars, Scheme Guidelines
+  June 2026
+================================================================================
+
+HOW TO APPLY THIS PATCH:
+  1. Keep v3.0 as the base file.
+  2. This patch file is structured as:
+     [REPLACE]  — override the named section in v3.0 with this content
+     [ADD]      — insert this new prompt/section (position noted)
+     [AMEND]    — add these lines to the named section in v3.0
+  3. Work through each fix in order.
+  4. After applying all patches, the result is your production-ready v3.1.
+
+================================================================================
+SECTION A — DEPLOYMENT CONFIGURATION (NEW — insert before Phase 1)
+================================================================================
+
+[ADD — insert after "CORPUS READINESS CHECKLIST" section in v3.0]
+
+--------------------------------------------------------------------------------
+DEPLOYMENT CONFIGURATION — SET ONCE BEFORE ANY PROMPT
+--------------------------------------------------------------------------------
+
+Before running Prompt 1.1, set these two configuration values in your .env.
+Every subsequent prompt reads these values to adapt its behaviour.
+
+DEPLOYMENT_MODE=
+  Options:
+    CENTRAL_GOVT       — Central Government of India (Ministries, Acts, Gazettes)
+    STATE_GOVT         — State Government (Departments, G.O.s, Circulars)
+
+DEPLOYMENT_STATE=
+  Required only when DEPLOYMENT_MODE=STATE_GOVT
+  Options (ISO 3166-2:IN state codes):
+    TN    — Tamil Nadu      (primary language: Tamil)
+    MH    — Maharashtra     (primary language: Marathi)
+    KA    — Karnataka       (primary language: Kannada)
+    KL    — Kerala          (primary language: Malayalam)
+    AP    — Andhra Pradesh  (primary language: Telugu)
+    TS    — Telangana       (primary language: Telugu)
+    WB    — West Bengal     (primary language: Bengali)
+    GJ    — Gujarat         (primary language: Gujarati)
+    PB    — Punjab          (primary language: Punjabi)
+    OD    — Odisha          (primary language: Odia)
+    AS    — Assam           (primary language: Assamese)
+    UP    — Uttar Pradesh   (primary language: Hindi)
+    RJ    — Rajasthan       (primary language: Hindi)
+    HR    — Haryana         (primary language: Hindi)
+    MP    — Madhya Pradesh  (primary language: Hindi)
+    BR    — Bihar           (primary language: Hindi)
+    JH    — Jharkhand       (primary language: Hindi)
+    CG    — Chhattisgarh    (primary language: Hindi)
+    UK    — Uttarakhand     (primary language: Hindi)
+    HP    — Himachal Pradesh (primary language: Hindi)
+    GA    — Goa             (primary language: Konkani)
+    MN    — Manipur         (primary language: Manipuri/Meitei)
+    Other states: follow same pattern
+
+PRIMARY_LANGUAGES=
+  Comma-separated list of language codes for this deployment.
+  These receive priority in OCR, cleaning, and training.
+  Central Govt example:  PRIMARY_LANGUAGES=hi,en
+  Tamil Nadu example:    PRIMARY_LANGUAGES=ta,en,hi
+  Karnataka example:     PRIMARY_LANGUAGES=kn,en,hi
+  Kerala example:        PRIMARY_LANGUAGES=ml,en,hi
+  West Bengal example:   PRIMARY_LANGUAGES=bn,en,hi
+  Always include 'en' and 'hi' for Central Govt documents.
+
+WHAT CHANGES BASED ON DEPLOYMENT_MODE:
+  CENTRAL_GOVT:
+    - Document types: Gazette Notification, Act, Bill, Ministry Order,
+      Cabinet Note, Policy Document, SOP, Advisory, Circular, Notification
+    - Organisational units: Ministries (not Departments)
+    - Primary languages: Hindi + English + state languages of relevant offices
+    - Qdrant collections: tn_{ministry_slug}_docs
+      e.g. tn_finance_ministry_docs, tn_health_ministry_docs
+    - Date format includes "Saka Era" dates found in Gazette documents
+    - Reference format: F.No., D.O. No., O.M. No., S.O., G.S.R.
+
+  STATE_GOVT:
+    - Document types: G.O., Circular, Scheme Guidelines, Notification,
+      Proceedings, Tender, Gazette (State), Policy
+    - Organisational units: Departments
+    - Primary languages: State language + Hindi + English
+    - Qdrant collections: {state_code}_{dept_slug}_docs
+      e.g. tn_health_docs, mh_education_docs, ka_finance_docs
+    - Reference format: G.O. Ms., G.O. Rt., Proc. No., Circular No.
+
+================================================================================
+SECTION B — ALL INDIAN LANGUAGES SUPPORT (replaces Tamil-only references)
+================================================================================
+
+[REPLACE — Prompt 1.1 / pyproject.toml dependencies section]
+Add these to pyproject.toml (PINNED, add after existing dependencies):
+
+  indic-nlp-library = "0.92"    — tokenisation for all Indian scripts
+  polyglot = "16.7.4"           — multilingual NLP utilities
+  icu4c = "73.2"                — Unicode normalisation for Indian scripts
+  langdetect = "1.0.9"          — already in v3.0, keep
+  ftlangdetect = "0.3.0"        — faster language detection, more accurate
+                                   for short Indian-language strings
+
+Add to requirements for Dockerfile (apt-get):
+  sudo apt-get install -y \
+    tesseract-ocr \
+    tesseract-ocr-eng \
+    tesseract-ocr-hin \
+    tesseract-ocr-tam \
+    tesseract-ocr-tel \
+    tesseract-ocr-kan \
+    tesseract-ocr-mal \
+    tesseract-ocr-ben \
+    tesseract-ocr-mar \
+    tesseract-ocr-guj \
+    tesseract-ocr-pan \
+    tesseract-ocr-ori \
+    tesseract-ocr-asm \
+    tesseract-ocr-urd \
+    tesseract-ocr-san \
+    libicu-dev \
+    python3-icu
+
+[REPLACE — .env.example additions]
+Add to .env.example (under # Core section):
+
+  DEPLOYMENT_MODE=STATE_GOVT
+  DEPLOYMENT_STATE=TN
+  PRIMARY_LANGUAGES=ta,en,hi
+  ALL_OCR_LANGUAGES=tam+hin+tel+kan+mal+ben+mar+guj+pan+ori+asm+urd+san+eng
+
+--------------------------------------------------------------------------------
+PATCH B.1 — LANGUAGE REGISTRY (NEW FILE — add to Prompt 1.1)
+--------------------------------------------------------------------------------
+
+[ADD — create /pipeline/language_registry.py as part of Prompt 1.1]
+
+Create /pipeline/language_registry.py:
+
+  INDIAN_LANGUAGES = {
+    "hi": {
+      "name": "Hindi",
+      "tesseract_code": "hin",
+      "unicode_ranges": [(0x0900, 0x097F)],   # Devanagari
+      "script": "Devanagari",
+      "states": ["UP","RJ","HR","MP","BR","JH","CG","UK","HP","DL","CT"],
+      "central_govt": True,
+      "official_lang": True
+    },
+    "ta": {
+      "name": "Tamil",
+      "tesseract_code": "tam",
+      "unicode_ranges": [(0x0B80, 0x0BFF)],
+      "script": "Tamil",
+      "states": ["TN","PY"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "te": {
+      "name": "Telugu",
+      "tesseract_code": "tel",
+      "unicode_ranges": [(0x0C00, 0x0C7F)],
+      "script": "Telugu",
+      "states": ["AP","TS"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "kn": {
+      "name": "Kannada",
+      "tesseract_code": "kan",
+      "unicode_ranges": [(0x0C80, 0x0CFF)],
+      "script": "Kannada",
+      "states": ["KA"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "ml": {
+      "name": "Malayalam",
+      "tesseract_code": "mal",
+      "unicode_ranges": [(0x0D00, 0x0D7F)],
+      "script": "Malayalam",
+      "states": ["KL","LD"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "bn": {
+      "name": "Bengali",
+      "tesseract_code": "ben",
+      "unicode_ranges": [(0x0980, 0x09FF)],
+      "script": "Bengali",
+      "states": ["WB","TR"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "mr": {
+      "name": "Marathi",
+      "tesseract_code": "mar",
+      "unicode_ranges": [(0x0900, 0x097F)],   # Also Devanagari
+      "script": "Devanagari",
+      "states": ["MH","DD"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "gu": {
+      "name": "Gujarati",
+      "tesseract_code": "guj",
+      "unicode_ranges": [(0x0A80, 0x0AFF)],
+      "script": "Gujarati",
+      "states": ["GJ","DD","DN"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "pa": {
+      "name": "Punjabi",
+      "tesseract_code": "pan",
+      "unicode_ranges": [(0x0A00, 0x0A7F)],   # Gurmukhi
+      "script": "Gurmukhi",
+      "states": ["PB","CH"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "or": {
+      "name": "Odia",
+      "tesseract_code": "ori",
+      "unicode_ranges": [(0x0B00, 0x0B7F)],
+      "script": "Odia",
+      "states": ["OD"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "as": {
+      "name": "Assamese",
+      "tesseract_code": "asm",
+      "unicode_ranges": [(0x0980, 0x09FF)],   # Bengali script
+      "script": "Bengali",
+      "states": ["AS"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "ur": {
+      "name": "Urdu",
+      "tesseract_code": "urd",
+      "unicode_ranges": [(0x0600, 0x06FF),(0x0750, 0x077F)],  # Arabic + supplement
+      "script": "Nastaliq",
+      "states": ["JK","TS","UP"],
+      "rtl": True,
+      "central_govt": True,
+      "official_lang": True
+    },
+    "sa": {
+      "name": "Sanskrit",
+      "tesseract_code": "san",
+      "unicode_ranges": [(0x0900, 0x097F)],
+      "script": "Devanagari",
+      "states": ["ALL"],
+      "central_govt": True,
+      "official_lang": True
+    },
+    "mni": {
+      "name": "Manipuri/Meitei",
+      "tesseract_code": "mni",
+      "unicode_ranges": [(0xABC0, 0xABFF),(0x0980, 0x09FF)],  # Meitei Mayek + Bengali
+      "script": "Meitei_Mayek",
+      "states": ["MN"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "kok": {
+      "name": "Konkani",
+      "tesseract_code": "kok",
+      "unicode_ranges": [(0x0900, 0x097F)],
+      "script": "Devanagari",
+      "states": ["GA"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "ne": {
+      "name": "Nepali",
+      "tesseract_code": "nep",
+      "unicode_ranges": [(0x0900, 0x097F)],
+      "script": "Devanagari",
+      "states": ["SK","WB"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "doi": {
+      "name": "Dogri",
+      "tesseract_code": "dog",
+      "unicode_ranges": [(0x0900, 0x097F)],
+      "script": "Devanagari",
+      "states": ["JK"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "bho": {
+      "name": "Bodo",
+      "tesseract_code": "bod",
+      "unicode_ranges": [(0x0900, 0x097F)],
+      "script": "Devanagari",
+      "states": ["AS"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "mai": {
+      "name": "Maithili",
+      "tesseract_code": "mai",
+      "unicode_ranges": [(0x0900, 0x097F)],
+      "script": "Devanagari",
+      "states": ["BR","JH"],
+      "central_govt": False,
+      "official_lang": True
+    },
+    "sd": {
+      "name": "Sindhi",
+      "tesseract_code": "snd",
+      "unicode_ranges": [(0x0600, 0x06FF)],   # Arabic script
+      "script": "Arabic",
+      "states": ["RJ","GJ"],
+      "rtl": True,
+      "central_govt": False,
+      "official_lang": True
+    },
+    "en": {
+      "name": "English",
+      "tesseract_code": "eng",
+      "unicode_ranges": [(0x0041, 0x007A)],
+      "script": "Latin",
+      "states": ["ALL"],
+      "central_govt": True,
+      "official_lang": True
+    }
+  }
+
+  def get_deployment_languages(deployment_state: str, deployment_mode: str) -> list:
+    """
+    Returns ordered list of language codes for a given deployment.
+    Priority: state primary language > Hindi > English > other Indian languages
+    """
+    import os
+    primary = os.getenv("PRIMARY_LANGUAGES", "hi,en").split(",")
+    all_langs = list(INDIAN_LANGUAGES.keys())
+    # Put primary languages first, then rest
+    ordered = primary + [l for l in all_langs if l not in primary]
+    return ordered
+
+  def get_ocr_lang_string(deployment_state: str) -> str:
+    """
+    Returns tesseract lang string for this deployment.
+    e.g. "tam+hin+eng" for Tamil Nadu, "hin+eng" for Central Govt
+    """
+    import os
+    primary = os.getenv("PRIMARY_LANGUAGES", "hi,en").split(",")
+    # Always include primary + hindi + english as minimum
+    codes = set()
+    for lang_code in primary:
+      if lang_code in INDIAN_LANGUAGES:
+        codes.add(INDIAN_LANGUAGES[lang_code]["tesseract_code"])
+    # Always ensure eng and hin are present
+    codes.add("eng")
+    codes.add("hin")
+    return "+".join(sorted(codes))
+
+  def detect_scripts_present(text: str) -> dict:
+    """
+    Scan text and return which Indian scripts are present.
+    Returns: {lang_code: True/False}
+    """
+    results = {}
+    for lang_code, info in INDIAN_LANGUAGES.items():
+      for start, end in info["unicode_ranges"]:
+        if any(start <= ord(c) <= end for c in text):
+          results[lang_code] = True
+          break
+      else:
+        results[lang_code] = False
+    return {k: v for k, v in results.items() if v}  # only present scripts
+
+  INDIAN_NUMERAL_MAP = {
+    # Devanagari (Hindi, Marathi, Sanskrit, Nepali, etc.)
+    "०":"0","१":"1","२":"2","३":"3","४":"4",
+    "५":"5","६":"6","७":"7","८":"8","९":"9",
+    # Tamil
+    "௦":"0","௧":"1","௨":"2","௩":"3","௪":"4",
+    "௫":"5","௬":"6","௭":"7","௮":"8","௯":"9",
+    # Telugu
+    "౦":"0","౧":"1","౨":"2","౩":"3","౪":"4",
+    "౫":"5","౬":"6","౭":"7","౮":"8","౯":"9",
+    # Kannada
+    "೦":"0","೧":"1","೨":"2","೩":"3","೪":"4",
+    "೫":"5","೬":"6","೭":"7","೮":"8","೯":"9",
+    # Malayalam
+    "൦":"0","൧":"1","൨":"2","൩":"3","൪":"4",
+    "൫":"5","൬":"6","൭":"7","൮":"8","൯":"9",
+    # Bengali/Assamese
+    "০":"0","১":"1","২":"2","৩":"3","৪":"4",
+    "৫":"5","৬":"6","৭":"7","৮":"8","৯":"9",
+    # Gujarati
+    "૦":"0","૧":"1","૨":"2","૩":"3","૪":"4",
+    "૫":"5","૬":"6","૭":"7","૮":"8","૯":"9",
+    # Punjabi/Gurmukhi
+    "੦":"0","੧":"1","੨":"2","੩":"3","੪":"4",
+    "੫":"5","੬":"6","੭":"7","੮":"8","੯":"9",
+    # Odia
+    "୦":"0","୧":"1","୨":"2","୩":"3","୪":"4",
+    "୫":"5","୬":"6","୭":"7","୮":"8","୯":"9",
+    # Urdu/Arabic-Indic
+    "٠":"0","١":"1","٢":"2","٣":"3","٤":"4",
+    "٥":"5","٦":"6","٧":"7","٨":"8","٩":"9"
+  }
+
+  def normalise_numerals(text: str) -> str:
+    """Convert all Indian script numerals to ASCII digits."""
+    for indic, arabic in INDIAN_NUMERAL_MAP.items():
+      text = text.replace(indic, arabic)
+    return text
+
+  MONTH_NAMES_INDIAN = {
+    # Hindi months
+    "जनवरी":"01","फरवरी":"02","मार्च":"03","अप्रैल":"04",
+    "मई":"05","जून":"06","जुलाई":"07","अगस्त":"08",
+    "सितम्बर":"09","अक्टूबर":"10","नवम्बर":"11","दिसम्बर":"12",
+    # Tamil months
+    "ஜனவரி":"01","பிப்ரவரி":"02","மார்ச்":"03","ஏப்ரல்":"04",
+    "மே":"05","ஜூன்":"06","ஜூலை":"07","ஆகஸ்ட்":"08",
+    "செப்டம்பர்":"09","அக்டோபர்":"10","நவம்பர்":"11","டிசம்பர்":"12",
+    # Telugu months
+    "జనవరి":"01","ఫిబ్రవరి":"02","మార్చి":"03","ఏప్రిల్":"04",
+    "మే":"05","జూన్":"06","జూలై":"07","ఆగస్టు":"08",
+    "సెప్టెంబర్":"09","అక్టోబర్":"10","నవంబర్":"11","డిసెంబర్":"12",
+    # Kannada months
+    "ಜನವರಿ":"01","ಫೆಬ್ರವರಿ":"02","ಮಾರ್ಚ್":"03","ಏಪ್ರಿಲ್":"04",
+    "ಮೇ":"05","ಜೂನ್":"06","ಜುಲೈ":"07","ಆಗಸ್ಟ್":"08",
+    "ಸೆಪ್ಟೆಂಬರ್":"09","ಅಕ್ಟೋಬರ್":"10","ನವೆಂಬರ್":"11","ಡಿಸೆಂಬರ್":"12",
+    # Malayalam months
+    "ജനുവരി":"01","ഫെബ്രുവരി":"02","മാർച്ച്":"03","ഏപ്രിൽ":"04",
+    "മേയ്":"05","ജൂൺ":"06","ജൂലൈ":"07","ഓഗസ്റ്റ്":"08",
+    "സെപ്റ്റംബർ":"09","ഒക്ടോബർ":"10","നവംബർ":"11","ഡിസംബർ":"12",
+    # Bengali months
+    "জানুয়ারি":"01","ফেব্রুয়ারি":"02","মার্চ":"03","এপ্রিল":"04",
+    "মে":"05","জুন":"06","জুলাই":"07","আগস্ট":"08",
+    "সেপ্টেম্বর":"09","অক্টোবর":"10","নভেম্বর":"11","ডিসেম্বর":"12",
+    # Marathi months
+    "जानेवारी":"01","फेब्रुवारी":"02","मार्च":"03","एप्रिल":"04",
+    "मे":"05","जून":"06","जुलै":"07","ऑगस्ट":"08",
+    "सप्टेंबर":"09","ऑक्टोबर":"10","नोव्हेंबर":"11","डिसेंबर":"12",
+    # Gujarati months
+    "જાન્યુઆરી":"01","ફેબ્રુઆરી":"02","માર્ચ":"03","એપ્રિલ":"04",
+    "મે":"05","જૂન":"06","જુલાઈ":"07","ઓગસ્ટ":"08",
+    "સપ્ટેમ્બર":"09","ઓક્ટોબર":"10","નવેમ્બર":"11","ડિસેમ્બર":"12",
+    # Punjabi months
+    "ਜਨਵਰੀ":"01","ਫਰਵਰੀ":"02","ਮਾਰਚ":"03","ਅਪ੍ਰੈਲ":"04",
+    "ਮਈ":"05","ਜੂਨ":"06","ਜੁਲਾਈ":"07","ਅਗਸਤ":"08",
+    "ਸਤੰਬਰ":"09","ਅਕਤੂਬਰ":"10","ਨਵੰਬਰ":"11","ਦਸੰਬਰ":"12",
+  }
+
+  SAKA_ERA_OFFSET = 78  # Saka year + 78 = Gregorian year (approx)
+
+  def convert_saka_date(saka_year: int, month_num: int, day: int) -> str:
+    """Convert Saka Era date (used in Indian Gazette) to Gregorian."""
+    gregorian_year = saka_year + SAKA_ERA_OFFSET
+    return f"{gregorian_year}-{month_num:02d}-{day:02d}"
+
+--------------------------------------------------------------------------------
+PATCH B.2 — FULL INDIAN LANGUAGE STOPWORDS (NEW FILE)
+--------------------------------------------------------------------------------
+
+[ADD — create /pipeline/assets/indian_stopwords.json as part of Prompt 1.1]
+
+Create /pipeline/assets/indian_stopwords.json with stopwords for all
+22 scheduled Indian languages. The file is too large to embed fully here.
+At Prompt 1.1 runtime, Antigravity must generate this file by:
+
+  1. Loading NLTK stopwords for English.
+  2. For each Indian language, generate the stopword list using this
+     approach inside Antigravity:
+     - Use indic-nlp-library: from indicnlp.tokenize import indic_tokenize
+     - Download standard stopword lists from:
+         https://github.com/stopwords-iso/stopwords-hi  (Hindi)
+         https://github.com/AdeelK93/Marathi-NLP       (Marathi)
+       and equivalent repos for each language.
+     - Store all as a single JSON: {"hi": [...], "ta": [...], "te": [...], ...}
+  3. If download fails: generate a basic 50-word list per language using
+     the LLaMA model with prompt:
+     "List 50 common function words (stopwords) in {language} that should
+      be removed before NLP topic extraction. Output as JSON array only."
+  4. Save to /pipeline/assets/indian_stopwords.json
+
+MINIMUM STOPWORD COUNTS per language (reject if below):
+  Hindi: 300+ words, Tamil: 200+ words, Telugu: 200+ words,
+  Kannada: 150+ words, Malayalam: 150+ words, Bengali: 150+ words,
+  All others: 50+ words minimum
+
+================================================================================
+SECTION C — CRITICAL FIXES (C1–C4)
+================================================================================
+
+--------------------------------------------------------------------------------
+FIX C1 — SQL ENGINE: REMOVE CIRCULAR LLaMA DEPENDENCY (replaces Prompt 4.3)
+--------------------------------------------------------------------------------
+
+[REPLACE — generate_sql() method in Prompt 4.3]
+
+PROBLEM: generate_sql() calls LLaMA for SQL generation. LLaMA was not
+trained on SQL and produces poor-quality queries for government database schemas.
+
+REPLACEMENT APPROACH — Three-tier SQL generation (no LLaMA for SQL):
+
+TIER 1 — Keyword-to-column mapping (covers 80% of government queries):
+  Build a schema_map dict in /pipeline/sql_engine.py:
+
+  SCHEMA_MAP = {
+    "beneficiaries": ("scheme_enrollments", "COUNT(*)", "status='active'"),
+    "enrolled": ("scheme_enrollments", "COUNT(*)", None),
+    "budget": ("budget_allocations", "SUM(allocated_amount)", None),
+    "expenditure": ("budget_allocations", "SUM(spent_amount)", None),
+    "spent": ("budget_allocations", "SUM(spent_amount)", None),
+    "balance": ("budget_allocations", "SUM(balance)", None),
+    "employees": ("employees", "COUNT(*)", "status='active'"),
+    "staff": ("employees", "COUNT(*)", "status='active'"),
+    "hospitals": ("hospitals", "COUNT(*)", None),
+    "beds": ("hospitals", "SUM(bed_count)", None),
+    "doctors": ("hospitals", "SUM(doctor_count)", None),
+    "schools": ("schools", "COUNT(*)", None),
+    "students": ("schools", "SUM(student_count)", None),
+    "teachers": ("schools", "SUM(teacher_count)", None),
+  }
+
+  generate_sql_tier1(question, department):
+    question_lower = question.lower()
+    matched = []
+    for keyword, (table, agg, extra_where) in SCHEMA_MAP.items():
+      if keyword in question_lower:
+        matched.append((table, agg, extra_where))
+    if not matched: return None  # fall through to Tier 2
+
+    table, agg, extra_where = matched[0]
+    where_clauses = [f"department='{department}'"]
+    if extra_where: where_clauses.append(extra_where)
+
+    # Extract year/district from question using regex + numeral normaliser
+    year_match = re.search(r'\b(20\d{2})\b', normalise_numerals(question))
+    if year_match: where_clauses.append(f"year={year_match.group(1)}")
+    district_match = re.search(
+      r'\bin\s+([A-Za-z\u0900-\u0D7F]+)\b', question, re.IGNORECASE)
+    if district_match:
+      where_clauses.append(f"district='{district_match.group(1).title()}'")
+
+    where = " AND ".join(where_clauses)
+    sql = f"SELECT {agg} as result FROM {table} WHERE {where} LIMIT 100"
+    return sql
+
+TIER 2 — Schema-aware template fill (for structured queries):
+  If Tier 1 returns None, use a fast template approach:
+
+  QUERY_TEMPLATES = {
+    "list_by_dept":
+      "SELECT * FROM {table} WHERE department='{dept}' LIMIT {limit}",
+    "count_by_district":
+      "SELECT district, COUNT(*) as count FROM {table}
+       WHERE department='{dept}' GROUP BY district ORDER BY count DESC LIMIT 20",
+    "sum_by_year":
+      "SELECT year, SUM({amount_col}) as total FROM {table}
+       WHERE department='{dept}' GROUP BY year ORDER BY year DESC LIMIT 5",
+  }
+
+  Detect template type using keyword patterns:
+    "list" | "show all" | "get all" → list_by_dept
+    "by district" | "district-wise" | "districtwise" → count_by_district
+    "by year" | "year-wise" | "financial year" → sum_by_year
+  Fill template with detected table and department. Return SQL.
+
+TIER 3 — Fallback: structured error response (NOT LLaMA):
+  If Tier 1 and Tier 2 both fail:
+  Return: {sql_generated: null, rows: [], formatted_result:
+    "This query requires accessing live database records. Please contact
+     your department's data team or use the department portal directly.",
+    error: "Query too complex for automatic SQL generation"}
+
+VALIDATE ALL TIERS through the same validate_sql() function (unchanged).
+
+WHY NO LLaMA FOR SQL:
+  LLaMA 3.1 8B is a document-reading model, not a code model. Text-to-SQL
+  requires a model fine-tuned on SQL (like sqlcoder or defog/sqlcoder-7b).
+  For a government deployment, incorrect SQL against a live database is
+  dangerous. The three-tier approach is deterministic and auditable.
+
+  Future upgrade path: when the project has a SQL-specific model budget,
+  deploy defog/sqlcoder-7b-hf as a separate inference endpoint and replace
+  generate_sql_tier1/2 with a single API call to that endpoint.
+
+--------------------------------------------------------------------------------
+FIX C2 — ADD PROMPT 5.0: DATABASE MIGRATION (insert before Prompt 5.1)
+--------------------------------------------------------------------------------
+
+[ADD — new Prompt 5.0, insert before Prompt 5.1 in Phase 5]
+
+--------------------------------------------------------------------------------
+PROMPT 5.0 — DATABASE MIGRATIONS (ALEMBIC)
+--------------------------------------------------------------------------------
+
+Build /alembic/ — database migration system using Alembic.
+THIS PROMPT MUST RUN BEFORE PROMPT 5.1 AND 5.2.
+
+WHY: Six PostgreSQL tables are defined across Prompts 4.3 and 5.2. Without
+migrations, the database will be empty on first deploy and the API will crash.
+
+1. Install Alembic (add to pyproject.toml):
+   alembic = "1.13.1"
+
+2. Initialise Alembic in the project root:
+   Run: alembic init alembic
+   This creates: /alembic/env.py, /alembic/versions/, alembic.ini
+
+3. Configure /alembic/env.py:
+   Import DATABASE_URL from .env via python-dotenv.
+   Set: target_metadata = Base.metadata
+   Import Base from /api/db_models.py
+   Use async-compatible config: run_migrations_offline() and
+   run_migrations_online() with SQLAlchemy engine from DATABASE_URL.
+
+4. Create /api/db_models.py — ALL SQLAlchemy models in one file:
+
+   from sqlalchemy import Column, String, Integer, Boolean, Float,
+     DateTime, ForeignKey, Text, Numeric, Date
+   from sqlalchemy.dialects.postgresql import UUID
+   from sqlalchemy.orm import DeclarativeBase
+   import uuid
+
+   class Base(DeclarativeBase):
+     pass
+
+   class User(Base):
+     __tablename__ = "users"
+     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     employee_id = Column(String(50), unique=True, nullable=False)
+     email = Column(String(255), unique=True, nullable=False)
+     hashed_password = Column(String(255), nullable=False)
+     full_name = Column(String(255), nullable=False)
+     department = Column(String(100), nullable=True)  # null for super_admin
+     ministry = Column(String(100), nullable=True)    # for Central Govt
+     state_code = Column(String(5), nullable=True)    # e.g. "TN", "MH"
+     role = Column(String(20), nullable=False)
+     preferred_language = Column(String(10), default="en")
+     is_active = Column(Boolean, default=True)
+     created_at = Column(DateTime, nullable=False)
+     last_login = Column(DateTime, nullable=True)
+
+   class APIKey(Base):
+     __tablename__ = "api_keys"
+     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     key_hash = Column(String(64), unique=True, nullable=False)
+     name = Column(String(100), nullable=False)
+     department = Column(String(100), nullable=True)
+     ministry = Column(String(100), nullable=True)
+     state_code = Column(String(5), nullable=True)
+     created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+     rate_limit_per_min = Column(Integer, default=100)
+     is_active = Column(Boolean, default=True)
+     expires_at = Column(DateTime, nullable=True)
+     created_at = Column(DateTime, nullable=False)
+     last_used_at = Column(DateTime, nullable=True)
+
+   class Session(Base):
+     __tablename__ = "sessions"
+     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+     token_hash = Column(String(64), unique=True, nullable=False)
+     created_at = Column(DateTime, nullable=False)
+     expires_at = Column(DateTime, nullable=False)
+     is_revoked = Column(Boolean, default=False)
+
+   class SchemeEnrollment(Base):
+     __tablename__ = "scheme_enrollments"
+     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     scheme_name = Column(String(255), nullable=False)
+     beneficiary_name = Column(String(255), nullable=True)
+     district = Column(String(100), nullable=True)
+     block = Column(String(100), nullable=True)
+     state_code = Column(String(5), nullable=True)
+     year = Column(Integer, nullable=True)
+     enrollment_date = Column(Date, nullable=True)
+     status = Column(String(50), default="active")
+     department = Column(String(100), nullable=True)
+     ministry = Column(String(100), nullable=True)
+     created_at = Column(DateTime, nullable=False)
+
+   class BudgetAllocation(Base):
+     __tablename__ = "budget_allocations"
+     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     department = Column(String(100), nullable=True)
+     ministry = Column(String(100), nullable=True)
+     state_code = Column(String(5), nullable=True)
+     scheme_name = Column(String(255), nullable=True)
+     financial_year = Column(String(10), nullable=False)
+     allocated_amount = Column(Numeric(15,2), nullable=True)
+     released_amount = Column(Numeric(15,2), nullable=True)
+     spent_amount = Column(Numeric(15,2), nullable=True)
+     balance = Column(Numeric(15,2), nullable=True)
+     as_of_date = Column(Date, nullable=True)
+
+   class Employee(Base):
+     __tablename__ = "employees"
+     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     employee_id = Column(String(50), unique=True, nullable=False)
+     name = Column(String(255), nullable=False)
+     designation = Column(String(255), nullable=True)
+     grade = Column(String(50), nullable=True)
+     department = Column(String(100), nullable=True)
+     ministry = Column(String(100), nullable=True)
+     state_code = Column(String(5), nullable=True)
+     district = Column(String(100), nullable=True)
+     posting_date = Column(Date, nullable=True)
+     status = Column(String(30), default="active")
+
+   class Hospital(Base):
+     __tablename__ = "hospitals"
+     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     name = Column(String(255), nullable=False)
+     district = Column(String(100), nullable=True)
+     state_code = Column(String(5), nullable=True)
+     block = Column(String(100), nullable=True)
+     type = Column(String(20), nullable=True)  # PHC/CHC/GH/TH/AIIMS
+     bed_count = Column(Integer, default=0)
+     doctor_count = Column(Integer, default=0)
+     nurse_count = Column(Integer, default=0)
+     department = Column(String(100), nullable=True)
+     ministry = Column(String(100), nullable=True)
+
+   class School(Base):
+     __tablename__ = "schools"
+     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     name = Column(String(255), nullable=False)
+     district = Column(String(100), nullable=True)
+     state_code = Column(String(5), nullable=True)
+     block = Column(String(100), nullable=True)
+     type = Column(String(50), nullable=True)
+     student_count = Column(Integer, default=0)
+     teacher_count = Column(Integer, default=0)
+     medium = Column(String(100), nullable=True)   # language of instruction
+     department = Column(String(100), nullable=True)
+     ministry = Column(String(100), nullable=True)
+
+   class LandRecord(Base):
+     __tablename__ = "land_records"
+     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+     survey_no = Column(String(50), nullable=True)
+     district = Column(String(100), nullable=True)
+     taluk = Column(String(100), nullable=True)
+     village = Column(String(100), nullable=True)
+     state_code = Column(String(5), nullable=True)
+     owner_name = Column(String(255), nullable=True)
+     patta_no = Column(String(50), nullable=True)
+     area_acres = Column(Float, nullable=True)
+     land_type = Column(String(100), nullable=True)
+     last_updated = Column(Date, nullable=True)
+
+5. Generate and run first migration:
+   alembic revision --autogenerate -m "initial_schema"
+   alembic upgrade head
+
+6. Create /api/database.py:
+   from sqlalchemy import create_engine
+   from sqlalchemy.orm import sessionmaker
+   from .db_models import Base
+   import os
+
+   engine = create_engine(os.getenv("DATABASE_URL"), pool_pre_ping=True)
+   SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+   def create_tables():
+     Base.metadata.create_all(bind=engine)
+
+   def get_db():  # FastAPI dependency
+     db = SessionLocal()
+     try: yield db
+     finally: db.close()
+
+7. Add migration run on startup to FastAPI lifespan (Prompt 5.3):
+   On startup, before model load:
+     import subprocess
+     subprocess.run(["alembic", "upgrade", "head"], check=True)
+     print("Database migrations applied ✓")
+
+--------------------------------------------------------------------------------
+FIX C3 — FRONTEND package.json MISSING VITE (replaces Prompt 1.1 section)
+--------------------------------------------------------------------------------
+
+[REPLACE — /frontend/package.json in Prompt 1.1]
+
+Replace the frontend/package.json with this corrected version:
+{
+  "name": "india-govt-llm-portal",
+  "version": "3.1.0",
+  "type": "module",
+  "dependencies": {
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-router-dom": "6.23.1",
+    "axios": "1.7.2",
+    "@headlessui/react": "2.0.4",
+    "react-markdown": "9.0.1",
+    "lucide-react": "0.383.0"
+  },
+  "devDependencies": {
+    "vite": "5.2.11",
+    "@vitejs/plugin-react": "4.3.0",
+    "tailwindcss": "3.4.4",
+    "postcss": "8.4.38",
+    "autoprefixer": "10.4.19",
+    "@types/react": "18.3.1",
+    "@types/react-dom": "18.3.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  }
+}
+
+Also create /frontend/vite.config.js:
+  import { defineConfig } from 'vite'
+  import react from '@vitejs/plugin-react'
+  export default defineConfig({
+    plugins: [react()],
+    server: { proxy: { '/api': 'http://localhost:8000' } }
+  })
+
+Also create /frontend/tailwind.config.js:
+  export default {
+    content: ['./index.html','./src/**/*.{js,jsx}'],
+    theme: { extend: {} },
+    plugins: []
+  }
+
+Also create /frontend/postcss.config.js:
+  export default {
+    plugins: { tailwindcss: {}, autoprefixer: {} }
+  }
+
+Also create /frontend/index.html:
+  Standard Vite + React HTML entrypoint referencing /src/main.jsx.
+
+Also create /frontend/src/main.jsx:
+  import React from 'react'
+  import ReactDOM from 'react-dom/client'
+  import App from './App.jsx'
+  import './index.css'
+  ReactDOM.createRoot(document.getElementById('root')).render(
+    <React.StrictMode><App /></React.StrictMode>
+  )
+
+Also create /frontend/src/index.css:
+  @tailwind base;
+  @tailwind components;
+  @tailwind utilities;
+
+--------------------------------------------------------------------------------
+FIX C4 — CORRECT QUICK REFERENCE TABLE (replaces Quick Reference in v3.0)
+--------------------------------------------------------------------------------
+
+[REPLACE — "QUICK REFERENCE TABLE" section in v3.0]
+
+================================================================================
+QUICK REFERENCE TABLE — ALL 22 PROMPTS (v3.1 corrected)
+================================================================================
+
+Phase 1 | Prompt 1.1 | Project structure + pinned deps + language registry
+Phase 1 | Prompt 1.2 | Multilingual PDF ingestion + all-Indian-script OCR
+Phase 1 | Prompt 1.3 | Document metadata extractor (Central + State modes)
+Phase 2 | Prompt 2.1 | Multilingual text cleaner + quality scoring
+Phase 2 | Prompt 2.2 | Smart chunker with auto-strategy selection
+Phase 3 | Prompt 3.1 | Training dataset builder with multilingual topic extraction
+        | [MANUAL]   | Human review of 10% training samples
+Phase 3 | Prompt 3.2 | QLoRA fine-tuning script (best-model saving)
+Phase 4 | Prompt 4.1 | Department/Ministry-scoped Qdrant embeddings
+Phase 4 | Prompt 4.2 | RAG retrieval engine (multilingual)
+Phase 4 | Prompt 4.3 | Text-to-SQL engine — 3-tier deterministic (no LLaMA)
+Phase 4 | Prompt 4.4 | Query classifier + result fusion layer
+Phase 5 | Prompt 5.0 | Database migrations (Alembic) — NEW, run FIRST  ← NEW
+Phase 5 | Prompt 5.1 | Celery async task queue
+Phase 5 | Prompt 5.2 | JWT authentication service (4 roles)             ← FIXED
+Phase 5 | Prompt 5.3 | FastAPI gateway (unified API)
+Phase 6 | Prompt 6.1 | Shared React frontend foundation                  ← FIXED
+Phase 6 | Prompt 6.2 | Department/Ministry User Chat Portal (React)      ← FIXED
+Phase 6 | Prompt 6.3 | Admin Upload Portal (React)                       ← FIXED
+Phase 6 | Prompt 6.4 | API Developer Portal (React)                      ← WAS MISSING
+Phase 7 | Prompt 7.1 | Evaluation dataset builder [multilingual curation]
+Phase 7 | Prompt 7.2 | Accuracy benchmarking + multilingual reporting
+Phase 8 | Prompt 8.1 | Docker + K8s + Redis manifest + Prometheus + CI/CD
+
+Total: 22 prompts (was 20) + 2 manual steps
+New in v3.1: Prompt 5.0 (Alembic migrations) added,
+             Quick Reference corrected (6.4 was missing)
+
+================================================================================
+SECTION D — SIGNIFICANT FIXES (S1–S6)
+================================================================================
+
+--------------------------------------------------------------------------------
+FIX S1 — RATE LIMIT UNITS: STANDARDISE ALL TO req/min
+--------------------------------------------------------------------------------
+
+[REPLACE — "USER ROLES AND PERMISSIONS" section in Prompt 5.2]
+
+USER ROLES AND PERMISSIONS (rate limits all in req/min, window=60 seconds):
+  super_admin:
+    - Can query all departments/ministries
+    - Can upload to all departments/ministries
+    - Can manage all users and API keys
+    - Can run system benchmarks and view all logs
+    - Rate limit: 500 req/min (effectively unlimited for admin tasks)
+    - Redis rate key window: 60 seconds
+
+  dept_admin / ministry_admin:
+    - Can query own department/ministry only
+    - Can upload to own department/ministry only
+    - Can manage users in own department/ministry
+    - Rate limit: 60 req/min (Redis window: 60 seconds)
+
+  dept_user / ministry_user:
+    - Can query own department/ministry only
+    - Cannot upload, manage users, or manage keys
+    - Rate limit: 20 req/min (Redis window: 60 seconds)
+
+  api_key:
+    - Programmatic access, scoped to one department/ministry
+    - Read-only (query only, no upload)
+    - Rate limit: configured per key, default 60 req/min
+    - Redis window: 60 seconds (same as others, consistent)
+
+[AMEND — /auth/rate_limiter.py in Prompt 5.2]
+Add role-to-limit mapping to rate_limiter.py:
+
+  ROLE_RATE_LIMITS = {
+    "super_admin": 500,
+    "dept_admin": 60,
+    "ministry_admin": 60,
+    "dept_user": 20,
+    "ministry_user": 20,
+    "api_key": 60,   # default, overridden by api_keys.rate_limit_per_min
+  }
+
+  All check_rate_limit() calls use window_seconds=60 consistently.
+
+--------------------------------------------------------------------------------
+FIX S2 — MULTILINGUAL STOPWORDS: LOAD FROM FILE NOT INLINE LIST
+--------------------------------------------------------------------------------
+
+[REPLACE — STEP 2b in Prompt 3.1 topic extraction section]
+
+  b) Load stopwords from /pipeline/assets/indian_stopwords.json
+     (created in Prompt 1.1 using Patch B.2 process).
+     Load NLTK English stopwords (after downloading — see Fix S3).
+     Build combined stopword set for all languages in PRIMARY_LANGUAGES.
+
+     import json
+     with open("/pipeline/assets/indian_stopwords.json") as f:
+         all_stopwords = json.load(f)
+     # Build active set from PRIMARY_LANGUAGES env var
+     from pipeline.language_registry import INDIAN_LANGUAGES
+     import os
+     primary = os.getenv("PRIMARY_LANGUAGES", "hi,en").split(",")
+     active_stopwords = set()
+     for lang in primary:
+         active_stopwords.update(all_stopwords.get(lang, []))
+     active_stopwords.update(nltk_english_stopwords)
+
+     Log: count of stopwords loaded per language.
+     If any language has < 50 stopwords: log WARNING.
+
+--------------------------------------------------------------------------------
+FIX S3 — NLTK DOWNLOAD: ADD TO SCRIPT START
+--------------------------------------------------------------------------------
+
+[AMEND — Prompt 3.1 script start, before STEP 1]
+
+Add at the very top of /pipeline/build_training_data.py:
+
+  import nltk
+  # Download required NLTK data — safe to run multiple times (idempotent)
+  nltk.download('stopwords', quiet=True)
+  nltk.download('punkt', quiet=True)
+  nltk.download('averaged_perceptron_tagger', quiet=True)
+
+Also add to /pipeline/ingest.py start:
+  import nltk
+  nltk.download('stopwords', quiet=True)
+
+Also add to the Corpus Readiness Checklist (before Phase 1):
+  [ ] Run: python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
+
+--------------------------------------------------------------------------------
+FIX S4 — CELERY FILE PATH: SAVE BEFORE PASSING TO TASK
+--------------------------------------------------------------------------------
+
+[REPLACE — POST /ingest endpoint in Prompt 5.3]
+
+  POST /ingest
+  - Requires JWT with role dept_admin, ministry_admin, or super_admin
+  - Multipart file upload, PDF only, max 50MB
+  - Validate: magic bytes start with %PDF — raise 400 if not PDF
+
+  CORRECTED SEQUENCE (fixes temp file deletion race condition):
+    1. Read uploaded file bytes into memory immediately (before response)
+    2. Generate saved_filename = f"{uuid4()}_{secure_filename(filename)}"
+    3. saved_path = /data/raw/{saved_filename}
+    4. Write bytes to saved_path synchronously (blocking, ~ms for most PDFs)
+    5. Verify saved_path exists and size > 0 before queuing
+    6. ONLY THEN: task = ingest_pdf_task.delay(saved_path, filename, department)
+    7. Return: {job_id: task.id, status: "queued", filename, department,
+                saved_as: saved_filename}
+
+  WHY: FastAPI deletes the UploadFile temp file when the request handler
+  returns. If Celery picks up the task after that — which is likely on any
+  real server — the temp file is gone. Saving to /data/raw/ first makes
+  the file durable before queuing.
+
+  Add werkzeug to dependencies for secure_filename():
+    werkzeug = "3.0.3"  (add to pyproject.toml)
+
+--------------------------------------------------------------------------------
+FIX S5 — ADD PASSWORD CHANGE ENDPOINT
+--------------------------------------------------------------------------------
+
+[AMEND — ENDPOINTS section in Prompt 5.3]
+
+Add this endpoint after POST /auth/logout:
+
+  POST /auth/change-password
+  - Requires JWT (all logged-in roles)
+  - Body: {current_password: str, new_password: str, confirm_password: str}
+  - Validation:
+      new_password == confirm_password — raise 400 if not
+      len(new_password) >= 12 — raise 400 with message
+      new_password != current_password — raise 400 (no reuse)
+      Verify current_password against stored hash
+      Password complexity: must contain uppercase + lowercase + digit + symbol
+  - Hash new_password with bcrypt, update users table
+  - Revoke all existing sessions for this user (force re-login)
+  - Return: {message: "Password changed. Please log in again."}
+  - Return 401 if current_password is wrong
+
+[AMEND — /auth/auth_service.py in Prompt 5.2]
+Add function:
+  change_password(user_id, current_password, new_password, db_session):
+    - Load user by id
+    - verify_password(current_password, user.hashed_password) — raise if wrong
+    - hash_password(new_password) → update user.hashed_password
+    - UPDATE sessions SET is_revoked=True WHERE user_id = user_id
+    - Commit. Return True.
+
+[AMEND — Admin Upload Portal Prompt 6.3]
+Add "Change password" option in sidebar under user name:
+  Clicking opens a modal with current_password, new_password,
+  confirm_password fields. POST to /auth/change-password on submit.
+  On success: clear token from localStorage, redirect to /login.
+
+[AMEND — Chat Portal Prompt 6.2]
+Add same "Change password" option in sidebar bottom section.
+
+--------------------------------------------------------------------------------
+FIX S6 — CELERY GPU MEMORY: SEPARATE EMBEDDING FROM INFERENCE
+--------------------------------------------------------------------------------
+
+[REPLACE — /workers/start_worker.sh in Prompt 5.1]
+
+Create TWO worker scripts:
+
+/workers/start_worker_cpu.sh:
+  #!/bin/bash
+  # Embedding worker — runs on CPU to avoid GPU memory conflict
+  CUDA_VISIBLE_DEVICES="" \
+  celery -A workers.celery_app worker \
+    --loglevel=info \
+    --concurrency=2 \
+    --queues=embedding \
+    -n worker_cpu@%h
+
+/workers/start_worker_gpu.sh:
+  #!/bin/bash
+  # GPU worker — for tasks that need CUDA (future use)
+  celery -A workers.celery_app worker \
+    --loglevel=info \
+    --concurrency=1 \
+    --queues=gpu \
+    -n worker_gpu@%h
+
+[AMEND — /workers/tasks.py in Prompt 5.1]
+
+In ingest_pdf_task:
+  STEP 5 (Embedding) — force CPU for embed_and_store_chunks:
+    In embed_and_store.py, when called from Celery worker,
+    detect if CUDA_VISIBLE_DEVICES is empty → use device="cpu"
+    for BGE-M3 SentenceTransformer:
+      device = "cpu" if os.environ.get("CUDA_VISIBLE_DEVICES","") == "" \
+                else "cuda"
+      model = SentenceTransformer("BAAI/bge-m3", device=device)
+    CPU embedding for 400-word chunks takes ~200ms per chunk.
+    Acceptable for background ingestion — not user-facing latency.
+
+  Route ingest_pdf_task to "embedding" queue:
+    @celery_app.task(bind=True, max_retries=3, queue="embedding")
+
+[AMEND — /deploy/docker-compose.yml in Prompt 8.1]
+Replace single worker service with:
+  worker-cpu:
+    Dockerfile.worker
+    command: /workers/start_worker_cpu.sh
+    environment: CUDA_VISIBLE_DEVICES=""  (no GPU access)
+    No GPU resource reservation
+    replicas: 2
+
+================================================================================
+SECTION E — MINOR FIXES (M1–M7)
+================================================================================
+
+--------------------------------------------------------------------------------
+FIX M1 — CORRECT "3 ROLES" HEADER IN PROMPT 5.2
+--------------------------------------------------------------------------------
+
+[REPLACE — Prompt 5.2 header line]
+
+OLD: PROMPT 5.2 — JWT AUTHENTICATION SERVICE (3 ROLES)
+NEW: PROMPT 5.2 — JWT AUTHENTICATION SERVICE (4 ROLES: super_admin,
+                   dept_admin/ministry_admin, dept_user/ministry_user, api_key)
+
+--------------------------------------------------------------------------------
+FIX M2 — ADD REDIS K8s MANIFEST
+--------------------------------------------------------------------------------
+
+[AMEND — /deploy/k8s/ section in Prompt 8.1]
+
+Add /deploy/k8s/redis-deployment.yaml:
+  apiVersion: apps/v1
+  kind: Deployment
+  metadata:
+    name: redis
+    namespace: tn-govt-llm   (or india-govt-llm for Central deployment)
+  spec:
+    replicas: 1
+    selector: matchLabels: {app: redis}
+    template:
+      metadata: labels: {app: redis}
+      spec:
+        containers:
+        - name: redis
+          image: redis:7.2-alpine
+          ports: [{containerPort: 6379}]
+          args: ["--appendonly", "yes", "--maxmemory", "2gb",
+                 "--maxmemory-policy", "allkeys-lru"]
+          volumeMounts:
+          - name: redis-data
+            mountPath: /data
+          resources:
+            requests: {memory: "512Mi", cpu: "250m"}
+            limits: {memory: "2Gi", cpu: "500m"}
+        volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-pvc
+  ---
+  apiVersion: v1
+  kind: PersistentVolumeClaim
+  metadata: {name: redis-pvc}
+  spec:
+    accessModes: [ReadWriteOnce]
+    resources: requests: storage: 8Gi
+  ---
+  apiVersion: v1
+  kind: Service
+  metadata: {name: redis-service}
+  spec:
+    selector: {app: redis}
+    ports: [{port: 6379, targetPort: 6379}]
+    type: ClusterIP
+
+Also add to /deploy/k8s/services.yaml:
+  Redis ClusterIP service entry: redis-service → port 6379
+
+--------------------------------------------------------------------------------
+FIX M3 — ADD REGISTRY LOGIN TO CI/CD
+--------------------------------------------------------------------------------
+
+[AMEND — /deploy/.github/workflows/ci-cd.yml in Prompt 8.1]
+
+Add these GitHub secrets to configure in the repository:
+  REGISTRY_URL     — container registry URL (e.g. registry.nic.in)
+  REGISTRY_USER    — registry username
+  REGISTRY_TOKEN   — registry access token or password
+
+Add this step BEFORE the Docker build step in the build job:
+  - name: Login to container registry
+    uses: docker/login-action@v3
+    with:
+      registry: ${{ secrets.REGISTRY_URL }}
+      username: ${{ secrets.REGISTRY_USER }}
+      password: ${{ secrets.REGISTRY_TOKEN }}
+
+Add this step to add proper image tagging:
+  - name: Set image tags
+    id: tags
+    run: |
+      echo "SHA_TAG=${{ secrets.REGISTRY_URL }}/india-govt-llm-api:${{ github.sha }}" >> $GITHUB_OUTPUT
+      echo "LATEST_TAG=${{ secrets.REGISTRY_URL }}/india-govt-llm-api:latest" >> $GITHUB_OUTPUT
+
+Update Docker build+push step:
+  - name: Build and push API image
+    uses: docker/build-push-action@v5
+    with:
+      context: .
+      file: ./deploy/Dockerfile.api
+      push: true
+      tags: |
+        ${{ steps.tags.outputs.SHA_TAG }}
+        ${{ steps.tags.outputs.LATEST_TAG }}
+
+  Repeat for worker and frontend images with their own tag patterns.
+
+Add kubectl image update step in deploy-staging job:
+  kubectl set image deployment/tn-govt-llm-api \
+    api=${{ steps.tags.outputs.SHA_TAG }} -n staging
+
+--------------------------------------------------------------------------------
+FIX M4 — ADD VITE_API_URL TO .env.example
+--------------------------------------------------------------------------------
+
+[AMEND — .env.example in Prompt 1.1]
+
+Add under # API section:
+  # Frontend (Vite reads these at build time)
+  VITE_API_URL=https://llm.tn.gov.in/api/v1
+  VITE_DEPLOYMENT_MODE=STATE_GOVT
+  VITE_STATE_NAME=Tamil Nadu
+  VITE_DEPLOYMENT_LABEL=Tamil Nadu Government LLM
+
+  For Central Govt deployment:
+  VITE_API_URL=https://llm.india.gov.in/api/v1
+  VITE_DEPLOYMENT_MODE=CENTRAL_GOVT
+  VITE_STATE_NAME=
+  VITE_DEPLOYMENT_LABEL=Government of India LLM
+
+[AMEND — /frontend/src/api/client.js in Prompt 6.1]
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1"
+  Also export: DEPLOYMENT_MODE = import.meta.env.VITE_DEPLOYMENT_MODE
+               DEPLOYMENT_LABEL = import.meta.env.VITE_DEPLOYMENT_LABEL
+
+--------------------------------------------------------------------------------
+FIX M5 — INDIAN NUMERAL DATES IN METADATA EXTRACTOR
+--------------------------------------------------------------------------------
+
+[AMEND — DATE extraction section in Prompt 1.3]
+
+Before running any date regex, add this preprocessing step:
+
+  from pipeline.language_registry import normalise_numerals, MONTH_NAMES_INDIAN
+
+  def preprocess_for_date(text: str) -> str:
+    # 1. Convert all Indian script numerals to ASCII digits
+    text = normalise_numerals(text)
+    # 2. Replace Indian month names with numeric equivalents
+    for month_name, month_num in MONTH_NAMES_INDIAN.items():
+      text = text.replace(month_name, month_num)
+    return text
+
+  preprocessed = preprocess_for_date(first_500_chars)
+  # Then run existing date regex patterns on `preprocessed`
+
+Also add Saka Era date pattern (Central Govt Gazette documents):
+  Pattern: "(\d{1,4})\s+(?:Saka|शक|साका)\s+(\d{1,2})\s+(\d{4})"
+  or Gazette standard: "(\d{1,2})\s+(\w+),?\s+(\d{4})\s+\(?Saka\s+(\d{4})\)?"
+  When matched: extract Gregorian date using convert_saka_date()
+  Log: "Saka Era date found and converted to Gregorian: {result}"
+
+--------------------------------------------------------------------------------
+FIX M6 — ADD PROMETHEUS SCRAPE CONFIG
+--------------------------------------------------------------------------------
+
+[ADD — create /deploy/prometheus.yml as part of Prompt 8.1]
+
+Create /deploy/prometheus.yml:
+  global:
+    scrape_interval: 15s
+    evaluation_interval: 15s
+
+  scrape_configs:
+    - job_name: 'india-govt-llm-api'
+      static_configs:
+        - targets: ['api:8000']
+      metrics_path: '/metrics'
+      scrape_interval: 10s
+
+    - job_name: 'india-govt-llm-worker'
+      static_configs:
+        - targets: ['worker-cpu:9808']   # Celery Prometheus exporter port
+      scrape_interval: 30s
+
+    - job_name: 'qdrant'
+      static_configs:
+        - targets: ['qdrant:6333']
+      metrics_path: '/metrics'
+      scrape_interval: 30s
+
+    - job_name: 'redis'
+      static_configs:
+        - targets: ['redis-exporter:9121']  # requires redis_exporter sidecar
+      scrape_interval: 30s
+
+    - job_name: 'postgres'
+      static_configs:
+        - targets: ['postgres-exporter:9187']  # requires postgres_exporter sidecar
+      scrape_interval: 30s
+
+Mount this file into the prometheus container in docker-compose.yml:
+  volumes:
+    - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+Create /deploy/grafana/dashboards/llm_overview.json:
+  (Grafana dashboard JSON for: query rate, p95 latency, GPU VRAM,
+   confidence distribution, ingestion queue depth, dept-wise usage)
+  Antigravity: generate a basic Grafana dashboard JSON with 6 panels
+  for the metrics above. Export format: Grafana 10.x JSON model.
+
+--------------------------------------------------------------------------------
+FIX M7 — ADD /metrics ENDPOINT TO FASTAPI
+--------------------------------------------------------------------------------
+
+[AMEND — pyproject.toml in Prompt 1.1]
+Add:
+  prometheus-fastapi-instrumentator = "6.1.0"
+
+[AMEND — /api/main.py startup in Prompt 5.3]
+Add after FastAPI app creation:
+  from prometheus_fastapi_instrumentator import Instrumentator
+  Instrumentator(
+    should_group_status_codes=True,
+    excluded_handlers=["/health", "/metrics"]
+  ).instrument(app).expose(app, endpoint="/metrics")
+
+This auto-exposes /metrics with:
+  - http_requests_total (by endpoint, method, status)
+  - http_request_duration_seconds (p50, p90, p95, p99)
+  - http_requests_in_progress
+
+Add CUSTOM metrics (add to /api/main.py):
+  from prometheus_client import Gauge, Counter, Histogram
+  MODEL_LOADED = Gauge("llm_model_loaded", "Whether fine-tuned model is loaded")
+  GPU_VRAM_USED = Gauge("llm_gpu_vram_mb", "GPU VRAM used in MB")
+  QUERY_CONFIDENCE = Histogram("llm_query_confidence", "Query confidence scores",
+    buckets=[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1.0])
+  DEPT_QUERY_COUNT = Counter("llm_dept_queries_total", "Queries by department",
+    labelnames=["department","query_type"])
+
+  Update in /query endpoint:
+    QUERY_CONFIDENCE.observe(result["confidence"])
+    DEPT_QUERY_COUNT.labels(department=dept, query_type=result["query_type"]).inc()
+
+================================================================================
+SECTION F — CENTRAL GOVERNMENT EXTENSIONS
+================================================================================
+
+--------------------------------------------------------------------------------
+PATCH F.1 — CENTRAL GOVT DOCUMENT TYPES + MINISTRY STRUCTURE
+--------------------------------------------------------------------------------
+
+[AMEND — Prompt 1.3 document type detection, add Central Govt types]
+
+When DEPLOYMENT_MODE=CENTRAL_GOVT, add these document types:
+  GAZETTE_NOTIF   — "Gazette Notification" | "G.S.R." | "S.O." | "Extraordinary"
+  ACT             — "Act, " | "The [A-Z].+ Act" | "Parliament" | "Lok Sabha"
+  BILL            — "Bill," | "introduced in" | "Select Committee"
+  MINISTRY_ORDER  — "O.M. No." | "D.O. No." | "F.No." | "Ministry of"
+  CABINET_NOTE    — "Cabinet Note" | "Cabinet Decision" | "PIB"
+  SOP             — "Standard Operating Procedure" | "SOP"
+  ADVISORY        — "Advisory" | "Guidelines issued by"
+  POLICY_DOC      — "Policy" | "National Policy" | "Mission"
+  CIRCULAR        — "Circular" (same as State)
+  NOTIFICATION    — "Notification" (same as State)
+
+[AMEND — Prompt 1.3 ministry/department detection]
+
+When DEPLOYMENT_MODE=CENTRAL_GOVT, detect these Central Ministries:
+  Finance Ministry      — "Ministry of Finance" | "Finance Ministry" | "DEA" | "DIPP"
+  Health Ministry       — "Ministry of Health" | "MoHFW" | "CGHS" | "AIIMS"
+  Education Ministry    — "Ministry of Education" | "MoE" | "UGC" | "AICTE"
+  Home Affairs          — "Ministry of Home" | "MHA" | "BSF" | "CRPF" | "IB"
+  External Affairs      — "Ministry of External" | "MEA" | "Embassy"
+  Defence               — "Ministry of Defence" | "MoD" | "Army" | "Navy" | "IAF"
+  Agriculture           — "Ministry of Agriculture" | "ICAR" | "FCI" | "MSP"
+  Railways              — "Ministry of Railways" | "Railway Board" | "IRCTC"
+  Road Transport        — "Ministry of Road" | "NHAI" | "MoRTH"
+  Power Ministry        — "Ministry of Power" | "CEA" | "NTPC" | "BEE"
+  Petroleum             — "Ministry of Petroleum" | "ONGC" | "IOCL"
+  IT & Telecom          — "MeitY" | "TRAI" | "DoT" | "NIC" | "NeGP"
+  Commerce              — "Ministry of Commerce" | "DGFT" | "Export"
+  Labour                — "Ministry of Labour" | "EPFO" | "ESI"
+  Law & Justice         — "Ministry of Law" | "Law Commission" | "LCI"
+  Women & Child Dev     — "Ministry of Women" | "WCD" | "ICDS" | "Anganwadi"
+  Rural Development     — "Ministry of Rural" | "MGNREGS" | "PMGSY"
+  Urban Development     — "Ministry of Urban" | "Smart Cities" | "AMRUT"
+  Jal Shakti            — "Jal Shakti" | "Ministry of Water" | "NMCG"
+  Environment           — "Ministry of Environment" | "CPCB" | "NGT"
+  Culture               — "Ministry of Culture" | "ASI" | "Sangeet Natak"
+  Science & Tech        — "DST" | "DRDO" | "ISRO" | "DAE" | "DBT"
+  Social Justice        — "Ministry of Social" | "NIMH" | "Disabilities"
+
+When DEPLOYMENT_MODE=STATE_GOVT: use department list from v3.0 Prompt 1.3.
+
+[AMEND — Prompt 4.1 Qdrant collection naming]
+
+Collection naming by deployment mode:
+  STATE_GOVT: {state_code}_{dept_slug}_docs
+    Examples: tn_health_docs, mh_education_docs, ka_finance_docs
+  CENTRAL_GOVT: cg_{ministry_slug}_docs
+    Examples: cg_finance_ministry_docs, cg_health_ministry_docs
+
+Qdrant collection registry — store in /pipeline/collection_registry.json:
+  {
+    "deployment_mode": "STATE_GOVT",
+    "state_code": "TN",
+    "collections": {
+      "Health": "tn_health_docs",
+      "School Education": "tn_education_docs"
+      ...
+    }
+  }
+  For CENTRAL_GOVT: "Finance Ministry": "cg_finance_ministry_docs" etc.
+  Load this registry in QueryRouter, RAGEngine, and Admin Portal.
+
+--------------------------------------------------------------------------------
+PATCH F.2 — CENTRAL GOVT REFERENCE NUMBER PATTERNS
+--------------------------------------------------------------------------------
+
+[AMEND — Reference number extraction in Prompt 1.3]
+
+When DEPLOYMENT_MODE=CENTRAL_GOVT, add these Central Govt ref patterns:
+  "F\.No\. [A-Z0-9/\-\.]+"        — Finance/Ministry file numbers
+  "D\.O\. No\. [A-Z0-9/\-\.]+"    — Demi-official numbers
+  "O\.M\. No\. [A-Z0-9/\-\.]+"    — Office Memorandum numbers
+  "S\.O\.\s*\d+"                   — Statutory Orders (Gazette)
+  "G\.S\.R\.\s*\d+"                — General Statutory Rules (Gazette)
+  "CVC No\. [0-9/\-\.]+"          — CVC Circulars
+  "CBI [A-Z/\d\-]+"               — CBI orders
+  "RTI [A-Z/\d\-]+"               — RTI references
+  "[A-Z]{2,5}/[0-9]{4,}"          — Generic ministry ref format
+
+When DEPLOYMENT_MODE=STATE_GOVT: use existing patterns from v3.0.
+
+--------------------------------------------------------------------------------
+PATCH F.3 — MULTILINGUAL TRAINING TEMPLATES
+--------------------------------------------------------------------------------
+
+[AMEND — Prompt 3.1 TEMPLATE A, B, C]
+
+Make templates bilingual — add Hindi versions for Central Govt:
+
+For CENTRAL_GOVT deployments, add Template D (Hindi instruction):
+  TEMPLATE D — Hindi query instruction:
+  {
+    "instruction": "{ref_number} के अनुसार {department} मंत्रालय ने
+                    {date} को {topic} के बारे में क्या कहा है?",
+    "input": "",
+    "output": "{chunk text}"
+  }
+  Only generate when chunk has_language="hi" or detected_language includes "hi"
+  Validate: instruction must contain Hindi Unicode characters
+
+For STATE_GOVT deployments, generate Template D in state primary language:
+  E.g. for TN: Tamil instruction
+  E.g. for KA: Kannada instruction
+  E.g. for MH: Marathi instruction
+
+To generate state-language template:
+  Use LLaMA to translate the Template A instruction into the state language:
+  "Translate this instruction to {language}: '{english_instruction}'
+   Output only the translation, nothing else."
+  Temperature=0.2. Validate: output contains expected script Unicode chars.
+  Cache translations to /data/training/translation_cache.json.
+
+================================================================================
+SECTION G — UPDATED DEPLOYMENT SUMMARY (v3.1)
+================================================================================
+
+FINAL COUNTS (v3.1 with all patches applied):
+  Total prompts:      22 (was 20)
+  New in v3.1:        Prompt 5.0 (Alembic), language_registry.py,
+                      indian_stopwords.json, collection_registry.json
+  Languages:          22 Indian scheduled languages + English
+  Deployment modes:   2 (CENTRAL_GOVT + STATE_GOVT)
+  States supported:   All 28 states + 8 UTs
+  Ministries:         22 Central Ministries mapped
+  Departments:        14 State departments mapped (expandable)
+  Bug fixes applied:  17 (4 Critical + 6 Significant + 7 Minor)
+
+PATCH APPLICATION PRIORITY:
+  Apply in this order — each fix may depend on the previous:
+  1. SECTION B first (language registry, .env changes, package.json)
+  2. FIX C2 (Prompt 5.0 Alembic) — before any other Phase 5 work
+  3. FIX C3 (vite in package.json) — before any Phase 6 work
+  4. FIX C4 (Quick Reference) — orientation fix, apply immediately
+  5. FIX S3 (NLTK download) — before running Prompt 3.1
+  6. FIX S4 (file path) — before running Prompt 5.3
+  7. FIX C1 (SQL engine) — replaces generate_sql() in Prompt 4.3
+  8. All M-fixes — before Phase 8 deployment
+
+TESSERACT LANGUAGES REQUIRED ON BUILD MACHINE (full list for v3.1):
+  sudo apt-get install -y \
+    tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin tesseract-ocr-tam \
+    tesseract-ocr-tel tesseract-ocr-kan tesseract-ocr-mal tesseract-ocr-ben \
+    tesseract-ocr-mar tesseract-ocr-guj tesseract-ocr-pan tesseract-ocr-ori \
+    tesseract-ocr-asm tesseract-ocr-urd tesseract-ocr-san tesseract-ocr-nep \
+    tesseract-ocr-mni libicu-dev python3-icu
+
+PRODUCTION URLS BY DEPLOYMENT MODE:
+  STATE_GOVT (Tamil Nadu example):
+    Chat portal:  https://llm.tn.gov.in/chat
+    Admin portal: https://llm.tn.gov.in/admin
+    API:          https://llm.tn.gov.in/api/v1
+
+  CENTRAL_GOVT:
+    Chat portal:  https://llm.india.gov.in/chat
+    Admin portal: https://llm.india.gov.in/admin
+    API:          https://llm.india.gov.in/api/v1
+
+  For State variants of Central Govt deployment:
+    Regional office portals scoped by state code in JWT claims.
+
+================================================================================
+END OF PATCH FILE v3.1
+================================================================================
+

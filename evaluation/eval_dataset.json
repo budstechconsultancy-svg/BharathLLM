@@ -1,0 +1,202 @@
+[
+  {
+    "eval_id": "6552244d-d4b1-44ad-b465-cb9d86e79b90",
+    "question": "How many CMHIS beneficiaries enrolled in 2024?",
+    "expected_query_type": "SQL",
+    "gold_answer": "According to database records, there are total enrollments of beneficiaries for the year 2024.",
+    "gold_sources": [],
+    "gold_sql": "SELECT COUNT(*) FROM scheme_enrollments WHERE scheme_name = 'CMHIS' AND year = 2024 AND department = 'Health';",
+    "department": "Health"
+  },
+  {
+    "eval_id": "ec1157de-0126-4142-85ab-aed998c4c40b",
+    "question": "What does G.O. 142 say about hospital bed norms?",
+    "expected_query_type": "RAG",
+    "gold_answer": "Government Order (G.O.) No. 142 states that all tertiary care hospitals must maintain a minimum bed count capacity matching specific district criteria.",
+    "gold_sources": [
+      "health_go_142_norms.pdf"
+    ],
+    "gold_sql": "",
+    "department": "Health"
+  },
+  {
+    "eval_id": "8a7d1b74-35e2-4c8c-9ccc-7d002dba4554",
+    "question": "What is the total allocated budget for PWD in the financial year 2024-25?",
+    "expected_query_type": "SQL",
+    "gold_answer": "The total allocated budget for PWD in the financial year 2024-25 is Rs. 45000000.00.",
+    "gold_sources": [],
+    "gold_sql": "SELECT allocated_amount FROM budget_allocations WHERE department = 'PWD' AND financial_year = '2024-25';",
+    "department": "PWD"
+  },
+  {
+    "eval_id": "ac97627a-f2e0-494a-b28c-25b0ffea4f6b",
+    "question": "தமிழ்நாடு அரசு மருத்துவக் காப்பீட்டுத் திட்டம் 2024 தகுதி என்ன?",
+    "expected_query_type": "RAG",
+    "gold_answer": "தமிழ்நாடு அரசு முதலமைச்சர் விரிவான மருத்துவக் காப்பீட்டுத் திட்டம் (CMHIS) 2024-ன் கீழ் ஆண்டு வருமானம் ரூ.1,20,000-க்கு மிகாமல் உள்ள குடும்பங்கள் தகுதி பெறுகின்றனர்.",
+    "gold_sources": [
+      "tamil_cmhis_guidelines_2024.pdf"
+    ],
+    "gold_sql": "",
+    "department": "Health"
+  },
+  {
+    "eval_id": "464e5f8c-c4bc-4bbe-b25b-b38153163cd9",
+    "question": "List all schools in Chennai district with student count greater than 500.",
+    "expected_query_type": "SQL",
+    "gold_answer": "The following schools in Chennai district have a student count greater than 500: Government Higher Secondary School, Corporation High School.",
+    "gold_sources": [],
+    "gold_sql": "SELECT name, student_count FROM schools WHERE district = 'Chennai' AND student_count > 500 AND department = 'School Education';",
+    "department": "School Education"
+  },
+  {
+    "eval_id": "eeb8c665-2524-437c-9cd2-6fe5e346c2e0",
+    "question": "What is the procedure to apply for Patta transfer as per Revenue department guidelines?",
+    "expected_query_type": "RAG",
+    "gold_answer": "As per Revenue guidelines, applying for a Patta transfer requires submitting an application on the e-Services portal along with the sale deed, land tax receipts, and parent documents.",
+    "gold_sources": [
+      "revenue_patta_transfer_circular.pdf"
+    ],
+    "gold_sql": "",
+    "department": "Revenue"
+  },
+  {
+    "eval_id": "84cd09a2-14b7-42c2-a6aa-b085d89a0298",
+    "question": "What is the spent amount for the CMHIS scheme in Finance Department?",
+    "expected_query_type": "SQL",
+    "gold_answer": "The spent amount for CMHIS in the Finance department is Rs. 12000000.00.",
+    "gold_sources": [],
+    "gold_sql": "SELECT spent_amount FROM budget_allocations WHERE scheme_name = 'CMHIS' AND department = 'Finance';",
+    "department": "Finance"
+  },
+  {
+    "eval_id": "796be7ad-d434-412c-99b4-da4575543e7a",
+    "question": "Explain the eligibility criteria for the Pudhumai Penn Scheme.",
+    "expected_query_type": "RAG",
+    "gold_answer": "The Pudhumai Penn scheme provides Rs. 1,000/month to government school girls who enroll in higher education courses having studied from classes 6 to 12 in state government schools.",
+    "gold_sources": [
+      "pudhumai_penn_scheme_rules.pdf"
+    ],
+    "gold_sql": "",
+    "department": "School Education"
+  },
+  {
+    "eval_id": "23cb26f4-f06b-4275-9153-9ad8786d9741",
+    "question": "How many active employees are posting in Madurai district?",
+    "expected_query_type": "SQL",
+    "gold_answer": "The database lists 142 active employees currently posted in Madurai district.",
+    "gold_sources": [],
+    "gold_sql": "SELECT COUNT(*) FROM employees WHERE district = 'Madurai' AND status = 'active';",
+    "department": "General"
+  },
+  {
+    "eval_id": "7efdbd4f-9392-420e-847d-0914a47e43cf",
+    "question": "What does circular 12/2023 say about PWD project guidelines?",
+    "expected_query_type": "RAG",
+    "gold_answer": "Circular 12/2023 details that all PWD projects exceeding Rs. 50 Lakhs must incorporate automated quality testing checkpoints at every validation tier.",
+    "gold_sources": [
+      "pwd_circular_12_2023.pdf"
+    ],
+    "gold_sql": "",
+    "department": "PWD"
+  },
+  {
+    "eval_id": "fff2ef02-76b3-45d5-950e-70b855bed618",
+    "question": "Standard mock question 11 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "RAG",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 11.",
+    "gold_sources": [
+      "ref_source_doc_11.pdf"
+    ],
+    "gold_sql": "",
+    "department": "IT"
+  },
+  {
+    "eval_id": "5bb487f2-379d-470d-89d0-72a833c0528c",
+    "question": "Standard mock question 12 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "SQL",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 12.",
+    "gold_sources": [],
+    "gold_sql": "SELECT COUNT(*) FROM employees WHERE department = 'IT' LIMIT 100;",
+    "department": "Finance"
+  },
+  {
+    "eval_id": "7080c4b2-d126-4f90-86a6-12885df61a6d",
+    "question": "Standard mock question 13 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "RAG",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 13.",
+    "gold_sources": [
+      "ref_source_doc_13.pdf"
+    ],
+    "gold_sql": "",
+    "department": "Finance"
+  },
+  {
+    "eval_id": "b3ab4e0a-e29d-4317-b606-d47a3309a1f3",
+    "question": "Standard mock question 14 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "SQL",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 14.",
+    "gold_sources": [],
+    "gold_sql": "SELECT COUNT(*) FROM employees WHERE department = 'IT' LIMIT 100;",
+    "department": "IT"
+  },
+  {
+    "eval_id": "89b78f55-5b07-4b04-ac53-e0a661b7c2bf",
+    "question": "Standard mock question 15 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "RAG",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 15.",
+    "gold_sources": [
+      "ref_source_doc_15.pdf"
+    ],
+    "gold_sql": "",
+    "department": "Finance"
+  },
+  {
+    "eval_id": "a833e317-4863-4b06-a737-600bcd5befb3",
+    "question": "Standard mock question 16 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "SQL",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 16.",
+    "gold_sources": [],
+    "gold_sql": "SELECT COUNT(*) FROM employees WHERE department = 'IT' LIMIT 100;",
+    "department": "Finance"
+  },
+  {
+    "eval_id": "e9321bd6-c0e8-45c7-831a-8a3456c35dcf",
+    "question": "Standard mock question 17 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "RAG",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 17.",
+    "gold_sources": [
+      "ref_source_doc_17.pdf"
+    ],
+    "gold_sql": "",
+    "department": "IT"
+  },
+  {
+    "eval_id": "c792d13a-0011-4ea0-a04c-43bd9bc5569a",
+    "question": "Standard mock question 18 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "SQL",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 18.",
+    "gold_sources": [],
+    "gold_sql": "SELECT COUNT(*) FROM employees WHERE department = 'IT' LIMIT 100;",
+    "department": "Finance"
+  },
+  {
+    "eval_id": "6b671c07-4636-474a-b5c5-b753524c8ff4",
+    "question": "Standard mock question 19 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "RAG",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 19.",
+    "gold_sources": [
+      "ref_source_doc_19.pdf"
+    ],
+    "gold_sql": "",
+    "department": "Finance"
+  },
+  {
+    "eval_id": "7a46c8b1-26c8-459a-8532-f682a9d87828",
+    "question": "Standard mock question 20 for benchmarking RAG/SQL translation models.",
+    "expected_query_type": "SQL",
+    "gold_answer": "Ground truth baseline response answers matching test sequence 20.",
+    "gold_sources": [],
+    "gold_sql": "SELECT COUNT(*) FROM employees WHERE department = 'IT' LIMIT 100;",
+    "department": "IT"
+  }
+]

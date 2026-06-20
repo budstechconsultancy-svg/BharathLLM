@@ -1,0 +1,32 @@
+{
+  "priority_domains": [
+    "india.gov.in", "nic.in", "gov.in",
+    "egazette.nic.in", "legislative.gov.in",
+    "prsindia.org", "mygov.in", "vikaspedia.in",
+    "rbi.org.in", "sebi.gov.in", "gst.gov.in",
+    "cbdt.gov.in", "incometax.gov.in",
+    "mhrd.gov.in", "education.gov.in", "ugc.ac.in",
+    "mohfw.gov.in", "nhm.gov.in", "aiims.edu",
+    "agricoop.nic.in", "farmer.gov.in",
+    "epfindia.gov.in", "esic.in",
+    "dipp.gov.in", "startupindia.gov.in",
+    "tnrd.gov.in", "tnega.org", "tn.gov.in",
+    "karnataka.gov.in", "kerala.gov.in",
+    "ap.gov.in", "telangana.gov.in",
+    "maharashtra.gov.in", "gujarat.gov.in",
+    "wb.gov.in", "punjab.gov.in",
+    "odisha.gov.in", "assam.gov.in"
+  ],
+  "blocked_domains": [
+    "quora.com", "reddit.com", "facebook.com",
+    "twitter.com", "instagram.com", "youtube.com",
+    "wikipedia.org",
+    "indiamart.com", "tradeindia.com",
+    "amazon.in", "flipkart.com", "myntra.com"
+  ],
+  "trusted_news": [
+    "thehindu.com", "hindustantimes.com",
+    "timesofindia.com", "ndtv.com",
+    "pib.gov.in", "newsonair.nic.in"
+  ]
+}

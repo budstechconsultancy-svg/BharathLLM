@@ -1,0 +1,2185 @@
+# Paste the end-to-end prompt v1 contents here and save the file.
+================================================================================
+  INDIA GOVERNMENT LLM — COMPLETE END-TO-END BUILD PROMPTS (v3.1 FINAL)
+  For use with Antigravity (AI-assisted vibe coding tool)
+
+  Project: India Government Multi-Department / Multi-Ministry Document
+           Intelligence System — RAG + SQL + Hybrid Query Engine
+  Stack:   LLaMA 3.1 8B (QLoRA) · BGE-M3 · Qdrant · PostgreSQL · FastAPI
+           · React Portals · JWT Auth · Celery · Redis · Docker · Kubernetes
+  Languages: All 22 Indian Scheduled Languages + English
+  Modes:   CENTRAL_GOVT (Ministries, Gazette, Acts, Bills)
+           STATE_GOVT   (Departments, G.O.s, Circulars, Schemes)
+  Version: v3.1 FINAL — June 2026
+  Changes from v3.0: 17 bug fixes · All Indian languages · Central Govt mode
+                     Alembic migrations · 3-tier SQL · vite fix · Redis K8s
+================================================================================
+
+HOW TO USE THIS FILE:
+  Copy each prompt ONE AT A TIME into Antigravity.
+  Run, verify output, fix errors, THEN move to the next prompt.
+  Prompts marked [MANUAL STEP] require a human action before continuing.
+  Never skip — each prompt builds on the previous.
+  Start at Prompt 1.1 and work in strict order.
+
+================================================================================
+ARCHITECTURE — READ BEFORE STARTING
+================================================================================
+
+THREE LAYERS:
+
+  LAYER 1 — DATA SOURCES
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Unstructured: PDFs (22 Indian langs) → OCR → Chunks → Qdrant RAG  │
+  │ Structured:   PostgreSQL → 3-Tier Deterministic Text-to-SQL        │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  LAYER 2 — INTELLIGENCE ENGINE
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │ Query Classifier → routes to RAG, SQL, or MIXED                    │
+  │ Fine-tuned LLaMA 3.1 8B reads fused multilingual context           │
+  │ Result Fusion merges document chunks + database rows → answer      │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  LAYER 3 — THREE PORTALS (React)
+  ┌──────────────────┬──────────────────────┬──────────────────────────┐
+  │ Dept/Min User    │ Dept/Min Admin        │ API Developer            │
+  │ Chat interface   │ Upload + manage       │ Keys + code samples      │
+  └──────────────────┴──────────────────────┴──────────────────────────┘
+
+ISOLATION PRINCIPLE:
+  Each Department (State) or Ministry (Central) → its own Qdrant collection.
+  State:   {state_code}_{dept_slug}_docs  e.g. tn_health_docs, mh_finance_docs
+  Central: cg_{ministry_slug}_docs        e.g. cg_health_ministry_docs
+  API keys and JWT tokens are scoped to ONE collection. No cross-access.
+  One shared fine-tuned LLM reads from any scoped collection.
+
+WHY RAG + FINE-TUNING:
+  Fine-tuning = the reader  (learns Indian govt writing style, terminology,
+                              bilingual structure, script handling)
+  RAG         = the library (provides actual document content at query time)
+
+WHY RAG + SQL:
+  RAG: "What does G.O. 142 say about hospital norms?"
+  SQL: "How many CMHIS beneficiaries enrolled in 2024?"
+  Mixed: "What is the scheme eligibility AND how many qualify now?"
+
+WHY 3-TIER SQL (not LLaMA for SQL):
+  LLaMA 3.1 8B is a document reader, not a code model.
+  Wrong SQL against a live govt database is dangerous and unauditable.
+  3-tier deterministic approach: keyword mapping → templates → safe fallback.
+
+================================================================================
+DEPLOYMENT CONFIGURATION — SET ONCE BEFORE PROMPT 1.1
+================================================================================
+
+Add these to .env BEFORE running any prompt.
+Every script reads DEPLOYMENT_MODE to adapt its behaviour.
+
+  DEPLOYMENT_MODE=STATE_GOVT        (or CENTRAL_GOVT)
+  DEPLOYMENT_STATE=TN               (state ISO code, only for STATE_GOVT)
+  PRIMARY_LANGUAGES=ta,en,hi        (comma-separated, state lang first)
+  ALL_OCR_LANGUAGES=tam+hin+eng     (Tesseract lang string for this deploy)
+
+STATE → PRIMARY LANGUAGE MAPPING:
+  TN=Tamil Nadu      → ta,en,hi     MH=Maharashtra   → mr,en,hi
+  KA=Karnataka       → kn,en,hi     KL=Kerala        → ml,en,hi
+  AP=Andhra Pradesh  → te,en,hi     TS=Telangana     → te,en,hi
+  WB=West Bengal     → bn,en,hi     GJ=Gujarat       → gu,en,hi
+  PB=Punjab          → pa,en,hi     OD=Odisha        → or,en,hi
+  AS=Assam           → as,en,hi     UP,RJ,HR,MP,BR   → hi,en
+  GA=Goa             → kok,en,hi    MN=Manipur       → mni,en,hi
+  JK=J&K             → ur,hi,en     SK=Sikkim        → ne,hi,en
+
+CENTRAL GOVT:
+  DEPLOYMENT_MODE=CENTRAL_GOVT
+  DEPLOYMENT_STATE=              (leave blank)
+  PRIMARY_LANGUAGES=hi,en
+  ALL_OCR_LANGUAGES=hin+eng+tam+tel+ben+mar+guj+pan+kan+mal+ori+asm+urd+san
+
+WHAT CHANGES BY MODE:
+  STATE_GOVT    → Departments, G.O., Circular, Scheme, Proceedings, Tender
+  CENTRAL_GOVT  → Ministries, Gazette, Act, Bill, O.M., Cabinet Note, SOP
+
+================================================================================
+CORPUS READINESS CHECKLIST — COMPLETE BEFORE PROMPT 1.1
+================================================================================
+
+  [ ] 500+ government PDF documents collected (mix of text-PDF and scanned)
+  [ ] Documents in primary language AND English included
+  [ ] DEPLOYMENT_MODE and PRIMARY_LANGUAGES set in .env
+  [ ] Tesseract + ALL Indian language packs installed:
+      sudo apt-get install -y \
+        tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin tesseract-ocr-tam \
+        tesseract-ocr-tel tesseract-ocr-kan tesseract-ocr-mal tesseract-ocr-ben \
+        tesseract-ocr-mar tesseract-ocr-guj tesseract-ocr-pan tesseract-ocr-ori \
+        tesseract-ocr-asm tesseract-ocr-urd tesseract-ocr-san tesseract-ocr-nep \
+        tesseract-ocr-mni libicu-dev python3-icu
+  [ ] NLTK data downloaded:
+      python -c "import nltk; nltk.download('stopwords'); nltk.download('punkt')"
+  [ ] PostgreSQL, Qdrant, Redis all running
+  [ ] Node.js 20+ installed
+  [ ] NVIDIA GPU 24GB+ VRAM (for fine-tuning; skip Phase 3 if < 5000 chunks)
+
+================================================================================
+QUICK REFERENCE — ALL 22 PROMPTS
+================================================================================
+
+Phase 1 | 1.1 | Project structure · deps · language registry · stopwords
+Phase 1 | 1.2 | Multilingual PDF ingestion + all-Indian-script OCR
+Phase 1 | 1.3 | Metadata extractor (State + Central modes)
+Phase 2 | 2.1 | Multilingual text cleaner + quality scoring
+Phase 2 | 2.2 | Smart chunker with auto-strategy selection
+Phase 3 | 3.1 | Training dataset builder (multilingual topic extraction)
+        |[MAN]| Human review of 10% training samples
+Phase 3 | 3.2 | QLoRA fine-tuning (best-model saving, bfloat16)
+Phase 4 | 4.1 | Dept/Ministry-scoped Qdrant embeddings
+Phase 4 | 4.2 | RAG retrieval engine (multilingual)
+Phase 4 | 4.3 | Text-to-SQL engine — 3-tier deterministic (no LLaMA for SQL)
+Phase 4 | 4.4 | Query classifier + result fusion layer
+Phase 5 | 5.0 | Database migrations (Alembic) — RUN FIRST in Phase 5
+Phase 5 | 5.1 | Celery async task queue (CPU worker for embedding)
+Phase 5 | 5.2 | JWT auth service (4 roles, req/min rate limits)
+Phase 5 | 5.3 | FastAPI gateway (unified API + /metrics endpoint)
+Phase 6 | 6.1 | Shared React frontend foundation
+Phase 6 | 6.2 | Dept/Ministry User Chat Portal
+Phase 6 | 6.3 | Dept/Ministry Admin Upload Portal
+Phase 6 | 6.4 | API Developer Portal
+Phase 7 | 7.1 | Eval dataset builder (multilingual, session resume)
+Phase 7 | 7.2 | Accuracy benchmarking (RAG + SQL + multilingual metrics)
+Phase 8 | 8.1 | Docker + K8s + Redis manifest + Prometheus + CI/CD
+
+Total: 22 prompts + 2 manual steps | Build time: 12–16 weeks
+
+================================================================================
+PHASE 1 — PROJECT SETUP & DATA INGESTION
+================================================================================
+
+--------------------------------------------------------------------------------
+PROMPT 1.1 — PROJECT STRUCTURE + DEPENDENCIES + LANGUAGE REGISTRY
+--------------------------------------------------------------------------------
+
+Create a Python + Node.js monorepo for the India Government LLM system.
+
+DIRECTORIES — create all:
+  /data/raw              /data/processed        /data/cleaned
+  /data/chunks           /data/training         /data/embeddings
+  /pipeline              /pipeline/assets       /api               /auth
+  /workers               /models                /evaluation        /logs
+  /alembic               /alembic/versions      /frontend
+  /frontend/src/portals/chat
+  /frontend/src/portals/admin
+  /frontend/src/portals/apidev
+  /frontend/src/api      /frontend/src/context  /frontend/src/components
+  /deploy                /deploy/k8s            /deploy/grafana/dashboards
+
+CREATE /pyproject.toml (all versions PINNED):
+  [tool.poetry.dependencies]
+  python = "^3.11"
+  fastapi = "0.111.0"
+  uvicorn = { version = "0.29.0", extras = ["standard"] }
+  pydantic = "2.7.1"
+  python-dotenv = "1.0.1"
+  pymupdf = "1.24.3"
+  pytesseract = "0.3.13"
+  Pillow = "10.3.0"
+  langdetect = "1.0.9"
+  ftlangdetect = "0.3.0"
+  transformers = "4.41.2"
+  peft = "0.11.1"
+  trl = "0.8.6"
+  torch = "2.3.0"
+  bitsandbytes = "0.43.1"
+  accelerate = "0.30.1"
+  sentence-transformers = "3.0.0"
+  qdrant-client = "1.9.1"
+  sqlalchemy = "2.0.30"
+  psycopg2-binary = "2.9.9"
+  alembic = "1.13.1"
+  celery = { version = "5.4.0", extras = ["redis"] }
+  redis = "5.0.4"
+  tqdm = "4.66.4"
+  python-multipart = "0.0.9"
+  werkzeug = "3.0.3"
+  PyJWT = "2.8.0"
+  passlib = { version = "1.7.4", extras = ["bcrypt"] }
+  datasets = "2.19.2"
+  nltk = "3.8.1"
+  httpx = "0.27.0"
+  indic-nlp-library = "0.92"
+  prometheus-fastapi-instrumentator = "6.1.0"
+  prometheus-client = "0.20.0"
+
+  [tool.poetry.dev-dependencies]
+  pytest = "8.2.0"
+  black = "24.4.2"
+  ruff = "0.4.4"
+
+CREATE /frontend/package.json:
+  {
+    "name": "india-govt-llm-portal",
+    "version": "3.1.0",
+    "type": "module",
+    "dependencies": {
+      "react": "18.3.1",
+      "react-dom": "18.3.1",
+      "react-router-dom": "6.23.1",
+      "axios": "1.7.2",
+      "@headlessui/react": "2.0.4",
+      "react-markdown": "9.0.1",
+      "lucide-react": "0.383.0"
+    },
+    "devDependencies": {
+      "vite": "5.2.11",
+      "@vitejs/plugin-react": "4.3.0",
+      "tailwindcss": "3.4.4",
+      "postcss": "8.4.38",
+      "autoprefixer": "10.4.19"
+    },
+    "scripts": {
+      "dev": "vite",
+      "build": "vite build",
+      "preview": "vite preview"
+    }
+  }
+
+CREATE /frontend/vite.config.js:
+  import { defineConfig } from 'vite'
+  import react from '@vitejs/plugin-react'
+  export default defineConfig({
+    plugins: [react()],
+    server: { proxy: { '/api': 'http://localhost:8000' } }
+  })
+
+CREATE /frontend/tailwind.config.js, postcss.config.js, index.html,
+/frontend/src/main.jsx, /frontend/src/index.css (standard Vite+React boilerplate
+with Tailwind @tailwind base/components/utilities).
+
+CREATE .env.example:
+  # Deployment
+  DEPLOYMENT_MODE=STATE_GOVT
+  DEPLOYMENT_STATE=TN
+  PRIMARY_LANGUAGES=ta,en,hi
+  ALL_OCR_LANGUAGES=tam+hin+eng
+
+  # Core model
+  QDRANT_URL=
+  QDRANT_API_KEY=
+  HF_TOKEN=
+  MODEL_NAME=meta-llama/Llama-3.1-8B-Instruct
+  MODELS_DIR=/models
+
+  # Auth
+  JWT_SECRET_KEY=
+  JWT_ALGORITHM=HS256
+  JWT_EXPIRY_HOURS=8
+  ADMIN_MASTER_KEY=
+
+  # Database
+  DATABASE_URL=postgresql://user:password@localhost:5432/india_govt_llm
+  POSTGRES_DB=india_govt_llm
+  POSTGRES_USER=
+  POSTGRES_PASSWORD=
+
+  # Redis
+  REDIS_URL=redis://localhost:6379/0
+
+  # API
+  API_SECRET_KEY=
+  ALLOWED_ORIGINS=https://llm.tn.gov.in,https://llm.india.gov.in
+
+  # Storage
+  RAW_DIR=/data/raw
+  PROCESSED_DIR=/data/processed
+  CLEANED_DIR=/data/cleaned
+  CHUNKS_DIR=/data/chunks
+  TRAINING_DIR=/data/training
+  LOG_DIR=/logs
+
+  # Frontend (Vite reads at build time)
+  VITE_API_URL=https://llm.tn.gov.in/api/v1
+  VITE_DEPLOYMENT_MODE=STATE_GOVT
+  VITE_DEPLOYMENT_LABEL=Tamil Nadu Government LLM
+
+CREATE /pipeline/__init__.py, /api/__init__.py, /auth/__init__.py,
+/workers/__init__.py as empty files.
+
+CREATE /pipeline/language_registry.py:
+
+  INDIAN_LANGUAGES = {
+    "hi":  {"name":"Hindi",      "tess":"hin","ranges":[(0x0900,0x097F)],"script":"Devanagari","rtl":False},
+    "ta":  {"name":"Tamil",      "tess":"tam","ranges":[(0x0B80,0x0BFF)],"script":"Tamil",     "rtl":False},
+    "te":  {"name":"Telugu",     "tess":"tel","ranges":[(0x0C00,0x0C7F)],"script":"Telugu",    "rtl":False},
+    "kn":  {"name":"Kannada",    "tess":"kan","ranges":[(0x0C80,0x0CFF)],"script":"Kannada",   "rtl":False},
+    "ml":  {"name":"Malayalam",  "tess":"mal","ranges":[(0x0D00,0x0D7F)],"script":"Malayalam", "rtl":False},
+    "bn":  {"name":"Bengali",    "tess":"ben","ranges":[(0x0980,0x09FF)],"script":"Bengali",   "rtl":False},
+    "mr":  {"name":"Marathi",    "tess":"mar","ranges":[(0x0900,0x097F)],"script":"Devanagari","rtl":False},
+    "gu":  {"name":"Gujarati",   "tess":"guj","ranges":[(0x0A80,0x0AFF)],"script":"Gujarati",  "rtl":False},
+    "pa":  {"name":"Punjabi",    "tess":"pan","ranges":[(0x0A00,0x0A7F)],"script":"Gurmukhi",  "rtl":False},
+    "or":  {"name":"Odia",       "tess":"ori","ranges":[(0x0B00,0x0B7F)],"script":"Odia",      "rtl":False},
+    "as":  {"name":"Assamese",   "tess":"asm","ranges":[(0x0980,0x09FF)],"script":"Bengali",   "rtl":False},
+    "ur":  {"name":"Urdu",       "tess":"urd","ranges":[(0x0600,0x06FF)],"script":"Nastaliq",  "rtl":True},
+    "sa":  {"name":"Sanskrit",   "tess":"san","ranges":[(0x0900,0x097F)],"script":"Devanagari","rtl":False},
+    "ne":  {"name":"Nepali",     "tess":"nep","ranges":[(0x0900,0x097F)],"script":"Devanagari","rtl":False},
+    "mni": {"name":"Manipuri",   "tess":"mni","ranges":[(0xABC0,0xABFF),(0x0980,0x09FF)],"script":"Meitei","rtl":False},
+    "kok": {"name":"Konkani",    "tess":"kok","ranges":[(0x0900,0x097F)],"script":"Devanagari","rtl":False},
+    "doi": {"name":"Dogri",      "tess":"dog","ranges":[(0x0900,0x097F)],"script":"Devanagari","rtl":False},
+    "mai": {"name":"Maithili",   "tess":"mai","ranges":[(0x0900,0x097F)],"script":"Devanagari","rtl":False},
+    "sd":  {"name":"Sindhi",     "tess":"snd","ranges":[(0x0600,0x06FF)],"script":"Arabic",    "rtl":True},
+    "bho": {"name":"Bodo",       "tess":"bod","ranges":[(0x0900,0x097F)],"script":"Devanagari","rtl":False},
+    "en":  {"name":"English",    "tess":"eng","ranges":[(0x0041,0x007A)],"script":"Latin",     "rtl":False},
+  }
+
+  INDIAN_NUMERAL_MAP = {
+    "०":"0","१":"1","२":"2","३":"3","४":"4","५":"5","६":"6","७":"7","८":"8","९":"9",
+    "௦":"0","௧":"1","௨":"2","௩":"3","௪":"4","௫":"5","௬":"6","௭":"7","௮":"8","௯":"9",
+    "౦":"0","౧":"1","౨":"2","౩":"3","౪":"4","౫":"5","౬":"6","౭":"7","౮":"8","౯":"9",
+    "೦":"0","೧":"1","೨":"2","೩":"3","೪":"4","೫":"5","೬":"6","೭":"7","೮":"8","೯":"9",
+    "൦":"0","൧":"1","൨":"2","൩":"3","൪":"4","൫":"5","൬":"6","൭":"7","൮":"8","൯":"9",
+    "০":"0","১":"1","২":"2","৩":"3","৪":"4","৫":"5","৬":"6","৭":"7","৮":"8","৯":"9",
+    "૦":"0","૧":"1","૨":"2","૩":"3","૪":"4","૫":"5","૬":"6","૭":"7","૮":"8","૯":"9",
+    "੦":"0","੧":"1","੨":"2","੩":"3","੪":"4","੫":"5","੬":"6","੭":"7","੮":"8","੯":"9",
+    "୦":"0","୧":"1","୨":"2","୩":"3","୪":"4","୫":"5","୬":"6","୭":"7","୮":"8","୯":"9",
+    "٠":"0","١":"1","٢":"2","٣":"3","٤":"4","٥":"5","٦":"6","٧":"7","٨":"8","٩":"9",
+  }
+
+  MONTH_NAMES_INDIAN = {
+    "जनवरी":"01","फरवरी":"02","मार्च":"03","अप्रैल":"04","मई":"05","जून":"06",
+    "जुलाई":"07","अगस्त":"08","सितम्बर":"09","अक्टूबर":"10","नवम्बर":"11","दिसम्बर":"12",
+    "ஜனவரி":"01","பிப்ரவரி":"02","மார்ச்":"03","ஏப்ரல்":"04","மே":"05","ஜூன்":"06",
+    "ஜூலை":"07","ஆகஸ்ட்":"08","செப்டம்பர்":"09","அக்டோபர்":"10","நவம்பர்":"11","டிசம்பர்":"12",
+    "జనవరి":"01","ఫిబ్రవరి":"02","మార్చి":"03","ఏప్రిల్":"04","మే":"05","జూన్":"06",
+    "జూలై":"07","ఆగస్టు":"08","సెప్టెంబర్":"09","అక్టోబర్":"10","నవంబర్":"11","డిసెంబర్":"12",
+    "ಜನವರಿ":"01","ಫೆಬ್ರವರಿ":"02","ಮಾರ್ಚ್":"03","ಏಪ್ರಿಲ್":"04","ಮೇ":"05","ಜೂನ್":"06",
+    "ಜುಲೈ":"07","ಆಗಸ್ಟ್":"08","ಸೆಪ್ಟೆಂಬರ್":"09","ಅಕ್ಟೋಬರ್":"10","ನವೆಂಬರ್":"11","ಡಿಸೆಂಬರ್":"12",
+    "ജനുവരി":"01","ഫെബ്രുവരി":"02","മാർച്ച്":"03","ഏപ്രിൽ":"04","മേയ്":"05","ജൂൺ":"06",
+    "ജൂലൈ":"07","ഓഗസ്റ്റ്":"08","സെപ്റ്റംബർ":"09","ഒക്ടോബർ":"10","നവംബർ":"11","ഡിസംബർ":"12",
+    "জানুয়ারি":"01","ফেব্রুয়ারি":"02","মার্চ":"03","এপ্রিল":"04","মে":"05","জুন":"06",
+    "জুলাই":"07","আগস্ট":"08","সেপ্টেম্বর":"09","অক্টোবর":"10","নভেম্বর":"11","ডিসেম্বর":"12",
+    "जानेवारी":"01","फेब्रुवारी":"02","एप्रिल":"04","मे":"05","जुलै":"07","ऑगस्ट":"08",
+    "सप्टेंबर":"09","ऑक्टोबर":"10","नोव्हेंबर":"11","डिसेंबर":"12",
+    "જાન્યુઆરી":"01","ફેબ્રુઆરી":"02","માર્ચ":"03","એપ્રિલ":"04","મે":"05","ઓગસ્ટ":"08",
+    "ਜਨਵਰੀ":"01","ਫਰਵਰੀ":"02","ਮਾਰਚ":"03","ਅਪ੍ਰੈਲ":"04","ਮਈ":"05","ਅਗਸਤ":"08",
+  }
+
+  SAKA_ERA_OFFSET = 78
+
+  def normalise_numerals(text: str) -> str:
+    for ind, ara in INDIAN_NUMERAL_MAP.items():
+      text = text.replace(ind, ara)
+    return text
+
+  def convert_saka_date(saka_year: int, month: int, day: int) -> str:
+    return f"{saka_year + SAKA_ERA_OFFSET}-{month:02d}-{day:02d}"
+
+  def detect_scripts(text: str) -> dict:
+    found = {}
+    for code, info in INDIAN_LANGUAGES.items():
+      for s, e in info["ranges"]:
+        if any(s <= ord(c) <= e for c in text):
+          found[code] = info["name"]; break
+    return found
+
+  def get_ocr_string() -> str:
+    import os
+    primary = os.getenv("PRIMARY_LANGUAGES","hi,en").split(",")
+    codes = {INDIAN_LANGUAGES[l]["tess"] for l in primary if l in INDIAN_LANGUAGES}
+    codes.update({"eng","hin"})
+    return "+".join(sorted(codes))
+
+  def get_collection_name(org_unit: str, state_code: str = None,
+                          deployment_mode: str = "STATE_GOVT") -> str:
+    slug = org_unit.lower().replace(" ","_").replace("&","and")
+    if deployment_mode == "CENTRAL_GOVT":
+      return f"cg_{slug}_docs"
+    sc = (state_code or "xx").lower()
+    return f"{sc}_{slug}_docs"
+
+CREATE /pipeline/assets/indian_stopwords.json:
+  Generate this file using Antigravity:
+  For each language in INDIAN_LANGUAGES, produce a JSON object
+  {"hi":[...300+ Hindi stopwords...],"ta":[...200+ Tamil stopwords...], ...}
+  Use the Anthropic API internally to generate each language's list with:
+    "List 300 common function words (stopwords) in {language_name} for
+     NLP topic extraction from government documents. Output JSON array only."
+  Minimum per language: hi=300, ta=200, te=200, kn=150, ml=150, bn=150,
+    mr=150, gu=100, pa=100, or=100, as=100, ur=100, all others=50.
+  Validate counts. Retry generation if below minimum.
+  Save to /pipeline/assets/indian_stopwords.json
+
+CREATE /pipeline/collection_registry.json (empty template — populated at runtime):
+  {
+    "deployment_mode": "",
+    "state_code": "",
+    "deployment_label": "",
+    "collections": {}
+  }
+
+CREATE /README.md covering: architecture, setup, deployment modes,
+  department/ministry onboarding, portal URLs, API reference, language support.
+
+
+--------------------------------------------------------------------------------
+PROMPT 1.2 — MULTILINGUAL PDF INGESTION + ALL-INDIAN-SCRIPT OCR
+--------------------------------------------------------------------------------
+
+Build /pipeline/ingest.py — PDF ingestion with all Indian language support.
+
+PRE-FLIGHT CHECKS (fail fast, clear error):
+  1. pytesseract.get_tesseract_version() — raise if Tesseract missing
+  2. subprocess check: tesseract --list-langs
+     Confirm 'tam','hin','tel','kan','mal','ben','mar','guj','pan','ori',
+     'asm','urd','san','eng' all present.
+     If any missing: print exact apt-get install command and exit.
+  3. import nltk; nltk.download('stopwords',quiet=True); nltk.download('punkt',quiet=True)
+  4. Verify /data/raw, /data/processed exist; create if missing.
+
+CLI: python -m pipeline.ingest --folder /data/raw --org "Health" [--state TN]
+  --org   tags all documents with department (STATE) or ministry (CENTRAL) name
+  --state overrides DEPLOYMENT_STATE env var for this batch
+
+FOR EACH PDF:
+
+  STEP A — Detection:
+  - Extract first page text via fitz (PyMuPDF)
+  - text_based = True if avg chars/page > 50
+  - Use ftlangdetect on first 500 chars for fast multilingual detection
+  - Call detect_scripts(text) from language_registry to identify scripts present
+
+  STEP B — Text extraction:
+  If TEXT-BASED:
+    - Extract page by page with fitz
+    - Detect scripts per page using detect_scripts()
+    - Concatenate with marker: "\n\n[PAGE_N]\n\n"
+  If SCANNED:
+    - fitz pixmap per page: DPI=300, RGB colorspace
+    - OCR lang string = get_ocr_string() from language_registry
+      (reads PRIMARY_LANGUAGES env, always includes hin+eng minimum)
+    - pytesseract config: lang=ocr_lang_string, --oem 3 --psm 6
+    - Collect per-word confidence via pytesseract.image_to_data()
+    - avg_confidence per page; flag page if avg < 40 as low_confidence
+    - For Urdu/RTL docs: add --psm 3 (auto page segmentation) for better results
+    - Log every low-confidence page with page number and avg score
+
+  STEP C — Light cleanup (preserve all Indian scripts):
+  - Remove null bytes and ASCII control chars (< 0x20, except \n \t)
+  - Collapse 3+ spaces → single space
+  - Normalise line endings to \n
+  - NEVER modify any Unicode char above U+0080
+
+  STEP D — Save:
+  - UTF-8 .txt to /data/processed/
+  - Filename: {state_code}_{org_slug}_{stem}_{YYYYMMDD_HHMMSS}.txt
+
+  STEP E — Error handling:
+  - try/except per file. On error: log, status="failed", continue.
+
+MANIFEST /data/processed/manifest.json (append/update per run):
+  Each entry: {original_filename, processed_filename, org_unit, state_code,
+    ingested_at, source_type, detected_scripts (dict), detected_language,
+    page_count, word_count, ocr_confidence, low_confidence_pages,
+    status, error}
+
+Print: total, succeeded, failed, script breakdown table.
+
+--------------------------------------------------------------------------------
+PROMPT 1.3 — METADATA EXTRACTOR (STATE + CENTRAL MODES)
+--------------------------------------------------------------------------------
+
+Build /pipeline/metadata_extractor.py — extracts structured metadata.
+Reads /data/processed/*.txt. Loads manifest.json. Reads DEPLOYMENT_MODE.
+
+STEP 0 — Numeral and month normalisation (apply to first 500 chars):
+  from pipeline.language_registry import normalise_numerals, MONTH_NAMES_INDIAN
+  preprocessed = normalise_numerals(first_500_chars)
+  for month_name, num in MONTH_NAMES_INDIAN.items():
+    preprocessed = preprocessed.replace(month_name, num)
+
+1. DOCUMENT TYPE:
+  STATE_GOVT mode (check first 500 chars, first match wins):
+    GO           → "G.O." | "G. O." | "Government Order"
+    CIRCULAR     → "CIRCULAR" | "Circular No."
+    SCHEME       → "SCHEME" | "Scheme Guidelines"
+    POLICY       → "POLICY"
+    NOTIFICATION → "NOTIFICATION"
+    PROCEEDINGS  → "PROCEEDINGS" | "Proc. No."
+    TENDER       → "TENDER"
+    GAZETTE      → "Official Gazette" | "State Gazette"
+    GENERAL      → default
+
+  CENTRAL_GOVT mode:
+    GAZETTE_NOTIF → "Gazette Notification" | "G.S.R." | "S.O." | "Extraordinary"
+    ACT           → "The [A-Z].+ Act" | "Parliament" | "Lok Sabha" | "Rajya Sabha"
+    BILL          → "Bill," | "introduced in" | "Select Committee"
+    MINISTRY_ORDER→ "O.M. No." | "D.O. No." | "F.No." | "Ministry of"
+    CABINET_NOTE  → "Cabinet Note" | "Cabinet Decision" | "PIB"
+    SOP           → "Standard Operating Procedure" | "SOP"
+    ADVISORY      → "Advisory" | "Guidelines issued by"
+    POLICY_DOC    → "National Policy" | "Mission" | "Scheme"
+    CIRCULAR      → "Circular"
+    NOTIFICATION  → "Notification"
+    GENERAL       → default
+
+2. ORG UNIT (STATE_GOVT — scan first 300 chars):
+  School Education → "School Education"|"School Edu"|"DEE"|"EMIS"
+  Health           → "Health and Family Welfare"|"TNHSP"|"Health Dept"|"NHM"
+  Finance          → "Finance"|"TNIFMC"|"Finance Dept"|"Treasury"
+  Revenue          → "Revenue"|"Revenue Dept"|"Revenue Administration"
+  PWD              → "Public Works"|"PWD"
+  Agriculture      → "Agriculture"|"Agri. Dept"|"TNAU"|"Horticulture"
+  HR&CE            → "HR&CE"|"Hindu Religious"|"Endowments"
+  Social Welfare   → "Social Welfare"|"WCD"|"ICDS"
+  Municipal Admin  → "Municipal Administration"|"MAWS"|"DTCP"|"CMDA"
+  Rural Development→ "Rural Development"|"RD&PR"|"TNRD"|"MGNREGS"
+  Industries       → "Industries"|"SIPCOT"|"TIDCO"|"MSME"
+  IT Department    → "Information Technology"|"ELCOT"|"TNEGA"|"MeitY state"
+  Transport        → "Transport"|"MTC"|"TNSTC"|"RTO"
+  Energy           → "Energy"|"TANGEDCO"|"TNEB"|"TNPCB"
+  Unknown          → default
+
+  ORG UNIT (CENTRAL_GOVT — scan first 300 chars):
+  Finance Ministry    → "Ministry of Finance"|"Finance Ministry"|"DEA"|"DIPP"|"CBDT"
+  Health Ministry     → "Ministry of Health"|"MoHFW"|"CGHS"|"AIIMS"|"ICMR"
+  Education Ministry  → "Ministry of Education"|"MoE"|"UGC"|"AICTE"|"NCERT"
+  Home Affairs        → "Ministry of Home"|"MHA"|"BSF"|"CRPF"|"IB"|"NDMA"
+  External Affairs    → "Ministry of External"|"MEA"|"Embassy"|"Consulate"
+  Defence             → "Ministry of Defence"|"MoD"|"Army HQ"|"Navy"|"IAF"
+  Agriculture         → "Ministry of Agriculture"|"ICAR"|"FCI"|"MSP"|"PM-KISAN"
+  Railways            → "Ministry of Railways"|"Railway Board"|"IRCTC"|"RDSO"
+  Road Transport      → "Ministry of Road"|"NHAI"|"MoRTH"|"NHIDCL"
+  Power Ministry      → "Ministry of Power"|"CEA"|"NTPC"|"BEE"|"RECs"
+  Petroleum           → "Ministry of Petroleum"|"ONGC"|"IOCL"|"HPCL"|"BPCL"
+  IT & Telecom        → "MeitY"|"TRAI"|"DoT"|"NIC"|"NeGP"|"DigiLocker"
+  Commerce            → "Ministry of Commerce"|"DGFT"|"SEZ"|"ECGC"
+  Labour              → "Ministry of Labour"|"EPFO"|"ESI"|"NCS"
+  Law & Justice       → "Ministry of Law"|"Law Commission"|"LCI"|"DoLA"
+  Women & Child Dev   → "Ministry of Women"|"WCD"|"ICDS"|"Anganwadi"|"POSHAN"
+  Rural Development   → "Ministry of Rural"|"MGNREGS"|"PMGSY"|"DAY-NRLM"
+  Urban Development   → "Ministry of Urban"|"Smart Cities"|"AMRUT"|"PMAY"
+  Jal Shakti          → "Jal Shakti"|"Ministry of Water"|"NMCG"|"NITI water"
+  Environment         → "Ministry of Environment"|"CPCB"|"NGT"|"MoEFCC"
+  Culture             → "Ministry of Culture"|"ASI"|"Sangeet Natak"|"IGNCA"
+  Science & Tech      → "DST"|"DRDO"|"ISRO"|"DAE"|"DBT"|"CSIR"
+  Social Justice      → "Ministry of Social"|"NIMH"|"Disabilities"|"NALSA"
+  UNKNOWN             → default
+
+  PRIORITY: if --org flag provided in ingest step, use it directly.
+
+3. DATE:
+  Pre-process with normalise_numerals() + MONTH_NAMES_INDIAN replacements (Step 0).
+  Try in order: DD.MM.YYYY | DD/MM/YYYY | DD-MM-YYYY
+                DD MonthNum YYYY | DD Month YYYY | Month DD, YYYY
+  Saka Era (Central Govt Gazette):
+    Pattern: r"(\d{1,2})\s+(\w+),?\s+(\d{4})\s+\(Saka\s+(\d{4})\)"
+    When matched: use convert_saka_date(saka_year, month_num, day)
+    Log: "Saka Era date converted: {result}"
+  Normalise all matches to YYYY-MM-DD. If none found: null.
+
+4. REFERENCE NUMBER:
+  STATE_GOVT: "No. [A-Z0-9/\.\-]+" | "Proc. No." | "Circular No." | "Lr. No."
+  CENTRAL_GOVT additionally: "F\.No\. [A-Z0-9/\-\.]+" | "O\.M\. No\." |
+    "D\.O\. No\." | "S\.O\.\s*\d+" | "G\.S\.R\.\s*\d+" |
+    "F\.\s*No\.\s*[A-Z0-9\-/\.]+"
+
+5. SCRIPTS PRESENT: call detect_scripts(full_text) → dict of code:name
+
+Save /data/processed/metadata.json. Each object:
+  {filename, org_unit, state_code, deployment_mode, doc_type, date,
+   ref_number, word_count, scripts_present (dict), detected_language}
+
+Print: doc_type distribution, org_unit distribution, null dates count,
+       script breakdown across corpus.
+
+
+================================================================================
+PHASE 2 — TEXT CLEANING & CHUNKING
+================================================================================
+
+--------------------------------------------------------------------------------
+PROMPT 2.1 — MULTILINGUAL TEXT CLEANER + QUALITY SCORING
+--------------------------------------------------------------------------------
+
+Build /pipeline/cleaner.py — government document cleaning for all Indian scripts.
+Input: /data/processed/. Output: /data/cleaned/ (create if missing).
+Load metadata.json and manifest.json per file.
+
+CLEANING PIPELINE (apply in order):
+
+1. BOILERPLATE REMOVAL:
+   English/Hindi government headers:
+   - "GOVERNMENT OF INDIA" | "GOVERNMENT OF [STATE]" as standalone line
+   - "ABSTRACT" | "CONTENTS" | "TABLE OF CONTENTS" as standalone heading
+   - Page numbers: "Page \d+ of \d+" | "- \d+ -" | "\[ \d+ \]"
+   - Divider lines: 3+ consecutive dashes/underscores/equals on own line
+   - Watermarks: "DRAFT" | "CONFIDENTIAL" | "COPY" as whole-line tokens
+   - "Forwarded / Forward" as standalone line
+   Hindi boilerplate: "भारत सरकार" | "राजपत्र" as repetitive standalone headers
+   Other scripts: remove standalone header repetitions for each detected script.
+   Preserve ALL Indian Unicode content otherwise.
+
+2. OCR ERROR CORRECTION (only when source_type == "scanned"):
+   English: broken hyphenated words across lines; missing space after period;
+     "0" vs "O" in ref numbers (context rule: letter-preceded "0" → "O")
+   Devanagari/Hindi: replace unrecognised glyphs (? □ ■) with [OCR_ERROR]
+   South Indian scripts (Tamil/Telugu/Kannada/Malayalam): same placeholder
+   Bengali/Odia/Gujarati/Punjabi: same
+   Urdu/RTL: log RTL OCR errors separately — flag for manual review
+   Log OCR error count per language per file.
+
+3. NUMERAL NORMALISATION:
+   Apply normalise_numerals() from language_registry.py
+   Converts all Indian script numerals to ASCII digits for:
+   - Date parsing consistency
+   - Number extraction in SQL queries
+   - Training data consistency
+
+4. TERMINOLOGY STANDARDISATION:
+   STATE mode: "G.O."|"GO"|"G O" → "Government Order"
+     "Dt."|"dt."|"Dtd." → "Dated"; "Dept." → "Department"; "Rs." standardised
+   CENTRAL mode additionally:
+     "Govt. of India" → "Government of India"
+     "MoF"|"Min. of Finance" → "Ministry of Finance"
+     All ministry abbreviations → canonical names from metadata.json lookup
+   Never normalise text in other scripts — English only.
+
+5. WHITESPACE:
+   Multiple spaces → single; 3+ blank lines → single blank; trailing spaces stripped.
+   Preserve paragraph breaks (double newline). Preserve RTL markers for Urdu.
+
+6. QUALITY SCORE (0–100):
+   score_a = (words with 3–15 chars / total) × 100
+   score_b = ocr_confidence (100 if text-based)
+   score_c = min((sentence_count / (word_count / 20)) × 100, 100)
+             Count sentence terminators: . ? ! । ॥ (including Devanagari danda)
+   quality_score = (score_a × 0.4) + (score_b × 0.4) + (score_c × 0.2)
+   Flag quality_score < 40 as needs_review=True.
+
+7. Save UTF-8 to /data/cleaned/. Update manifest.json with quality_score,
+   cleaned_filename, needs_review. Print list of flagged files.
+
+--------------------------------------------------------------------------------
+PROMPT 2.2 — SMART CHUNKER WITH AUTO-STRATEGY SELECTION
+--------------------------------------------------------------------------------
+
+Build /pipeline/chunker.py — multilingual document chunking for RAG.
+Skip files with needs_review=True. Load metadata.json and manifest.json.
+
+STRUCTURE SCORE (0–10):
+  +3 if numbered sections > 3 (lines starting with "1."|"क."|"அ.")
+  +3 if section markers > 2 ("ORDER:"|"CIRCULAR:"|"WHEREAS:"|"THEREFORE:"|
+     "अनुभाग"|"विभाग"|"PART"|"SECTION"|"ANNEXURE"|"अनुलग्नक")
+  +2 if paragraph breaks > 5
+  +2 if scripts_present has any Indian script key (bias toward paragraph strategy)
+
+STRATEGY SELECTION:
+  score >= 6 AND only English/Hindi scripts → Strategy A (semantic/section)
+  score 3–5                                 → Strategy B (fixed overlap)
+  score < 3 OR multiple scripts present     → Strategy C (paragraph)
+
+STRATEGY A — Section-based:
+  Split on: ^\d+\. | ^[A-Z]+\. | ORDER: | CIRCULAR: | WHEREAS: | THEREFORE:
+            PART [IVX]+ | SECTION \d+ | ANNEXURE | अनुभाग | विभाग
+  Min 150 words, max 500 words. Overflow → Strategy B sub-chunking.
+  Underflow (<150) → merge with next.
+
+STRATEGY B — Fixed overlap:
+  Window: 400 tokens (~300 words). Overlap: 50 tokens (~37 words).
+  Sliding window over word list.
+
+STRATEGY C — Paragraph:
+  Split on \n\n. Merge if < 100 words. Cap at 500 using B sub-chunking.
+
+CHUNK METADATA:
+  {chunk_id (uuid4), source_file, original_file, org_unit, state_code,
+   deployment_mode, doc_type, date, ref_number, scripts_present (dict),
+   chunk_strategy, chunk_index, total_chunks, word_count, text}
+
+Save: /data/chunks/chunks.jsonl (one JSON per line).
+Print: docs/skipped, total chunks, strategy distribution, avg size, script breakdown.
+
+================================================================================
+PHASE 3 — FINE-TUNING WITH QLoRA
+================================================================================
+
+PREREQUISITE: wc -l /data/chunks/chunks.jsonl
+  If < 5000: SKIP Phase 3. Use base LLaMA with RAG only (go to Phase 4).
+  Document this decision in README under "Fine-tuning Status".
+
+--------------------------------------------------------------------------------
+PROMPT 3.1 — MULTILINGUAL TRAINING DATASET BUILDER
+--------------------------------------------------------------------------------
+
+Build /pipeline/build_training_data.py — Alpaca-format instruction dataset.
+
+SCRIPT START (required imports + downloads):
+  import nltk
+  nltk.download('stopwords', quiet=True)
+  nltk.download('punkt', quiet=True)
+  nltk.download('averaged_perceptron_tagger', quiet=True)
+
+STEP 1 — Load and filter:
+  Load /data/chunks/chunks.jsonl. Filter: word_count < 80 → skip.
+
+STEP 2 — TOPIC EXTRACTION per chunk:
+  a) Tokenise chunk text into words.
+  b) Load NLTK English stopwords.
+  c) Load Indian stopwords from /pipeline/assets/indian_stopwords.json:
+     primary = os.getenv("PRIMARY_LANGUAGES","hi,en").split(",")
+     active_stopwords = set()
+     for lang in primary:
+         active_stopwords.update(all_stopwords.get(lang, []))
+     active_stopwords.update(nltk_english_stopwords)
+     Log: stopword counts per language loaded.
+     Warn if any primary language has < 50 stopwords.
+  d) Remove stopwords. Count remaining word frequencies.
+  e) topic = top 3 most-frequent content words joined by space.
+  f) If topic empty: topic = org_unit + " " + doc_type
+
+STEP 3 — GENERATE 3 ENGLISH + 1 REGIONAL training pairs per chunk:
+
+  TEMPLATE A — Direct Q&A (only when ref_number AND date not null):
+  {
+    "instruction": "What does {ref_number} {doc_type} from {org_unit}
+                    dated {date} state about {topic}?",
+    "input": "", "output": "{chunk text}"
+  }
+
+  TEMPLATE B — Summarisation:
+  {
+    "instruction": "Summarise the key points from this {deployment_label}
+                    {doc_type} issued by {org_unit}:",
+    "input": "{chunk text}",
+    "output": "{first 3 complete sentences}"
+  }
+  Split sentences on: ". " | "? " | "! " | "। " | "॥ " | "。"
+  Take first 3. Never truncate mid-sentence.
+
+  TEMPLATE C — Lookup:
+  {
+    "instruction": "Retrieve {deployment_label} government orders and
+                    circulars from {org_unit} related to {topic}:",
+    "input": "", "output": "{chunk text}"
+  }
+
+  TEMPLATE D — Regional language instruction:
+  Detect primary script from scripts_present.
+  If primary script is Hindi/Devanagari:
+    instruction_d = "{ref_number} के अनुसार {org_unit} ने {date} को
+                     {topic} के बारे में क्या कहा है?"
+  If primary script is Tamil:
+    instruction_d = "{org_unit} துறையிலிருந்து {doc_type} — {topic}
+                     பற்றி என்ன கூறுகிறது?"
+  If primary script is Telugu:
+    instruction_d = "{org_unit} శాఖ నుండి {doc_type} — {topic}
+                     గురించి ఏమి చెప్పింది?"
+  If primary script is Kannada:
+    instruction_d = "{org_unit} ಇಲಾಖೆಯಿಂದ {doc_type} — {topic}
+                     ಬಗ್ಗೆ ಏನು ಹೇಳುತ್ತದೆ?"
+  If primary script is Malayalam:
+    instruction_d = "{org_unit} വകുപ്പിൽ നിന്നുള്ള {doc_type} —
+                     {topic} കുറിച്ച് എന്ത് പറയുന്നു?"
+  If primary script is Bengali:
+    instruction_d = "{org_unit} বিভাগ থেকে {doc_type} — {topic}
+                     সম্পর্কে কী বলে?"
+  If primary script is Marathi:
+    instruction_d = "{org_unit} विभागाकडून {doc_type} — {topic}
+                     बद्दल काय सांगते?"
+  For other scripts: use Hindi template as fallback.
+  Validate: instruction_d must contain non-ASCII Unicode chars.
+  Skip Template D if chunk has no Indian script detected.
+
+  FALLBACK: if topic empty → skip A, C, D; generate B only.
+
+STEP 4 — VALIDATION (reject pair if ANY fails):
+  - instruction: 10–300 chars
+  - output: 50–2000 chars
+  - output ≠ input (Template B)
+  - No placeholder brackets: \[.*?\] in output
+  - Does not start with "None"|"null"
+  Log rejection count per rule.
+
+STEP 5 — Format, shuffle (seed=42), split 90/10.
+  Save /data/training/train.json and /data/training/val.json.
+  Save /data/training/training_manifest.json:
+    {total_chunks, pairs_generated, pairs_rejected, train_count,
+     val_count, avg_output_length, language_pair_breakdown, generated_at}
+
+--------------------------------------------------------------------------------
+[MANUAL STEP] — HUMAN REVIEW BEFORE FINE-TUNING
+--------------------------------------------------------------------------------
+
+Run before Prompt 3.2:
+
+  import json, random
+  with open("/data/training/train.json") as f: data = json.load(f)
+  for s in random.sample(data, min(50, len(data))):
+      print("=" * 60)
+      print(f"INSTRUCTION: {s['instruction']}")
+      print(f"INPUT:       {s.get('input','')[:200]}")
+      print(f"OUTPUT:      {s['output'][:300]}")
+      print()
+
+Checklist:
+  [ ] No placeholder brackets remaining
+  [ ] Regional language instructions (Template D) contain correct script
+  [ ] Template B summaries are 3 complete sentences
+  [ ] No duplicates visible in sample
+  [ ] Output does not start with "None" or "null"
+  [ ] Script distribution matches your corpus (Tamil/Hindi/etc. proportional)
+
+Proceed to 3.2 ONLY after checklist is clean.
+
+--------------------------------------------------------------------------------
+PROMPT 3.2 — QLoRA FINE-TUNING SCRIPT
+--------------------------------------------------------------------------------
+
+Build /models/finetune.py — QLoRA fine-tuning of LLaMA 3.1 8B.
+
+PRE-FLIGHT:
+  - train.json >= 1000 entries; val.json >= 100 entries
+  - HF_TOKEN in env; torch.cuda.is_available() must be True
+  - Print: GPU name, VRAM total/free
+
+MODEL:
+  Base: "meta-llama/Llama-3.1-8B-Instruct"
+  BitsAndBytesConfig: load_in_4bit=True, bnb_4bit_compute_dtype=torch.bfloat16,
+    bnb_4bit_quant_type="nf4", bnb_4bit_use_double_quant=True
+
+LoRA: r=16, lora_alpha=32, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM"
+  target_modules=["q_proj","v_proj","k_proj","o_proj",
+                  "gate_proj","up_proj","down_proj"]
+  (MLP modules included for better multilingual script adaptation)
+
+TRAINING ARGS:
+  output_dir="/models/india-govt-llm"
+  num_train_epochs=3, per_device_train_batch_size=4,
+  gradient_accumulation_steps=4, learning_rate=2e-4, bf16=True,
+  logging_steps=50, save_steps=200, eval_steps=200, warmup_ratio=0.03,
+  lr_scheduler_type="cosine", load_best_model_at_end=True,
+  metric_for_best_model="eval_loss", greater_is_better=False,
+  save_total_limit=3, report_to="none"
+
+PROMPT TEMPLATE (omit Input section if input is empty string):
+  "Below is an instruction related to India Government documents.
+   Write a response that appropriately answers the request.\n\n
+   ### Instruction:\n{instruction}\n\n
+   ### Input:\n{input}\n\n
+   ### Response:\n{output}"
+
+Use SFTTrainer from trl. max_seq_length=2048.
+
+POST-TRAINING:
+  Load best checkpoint. model.merge_and_unload().
+  Save to /models/india-govt-llm-final/ (model + tokenizer).
+  Save /models/training_log.csv: step, train_loss, eval_loss, lr, epoch.
+  Print: best eval_loss, step, total time.
+
+
+================================================================================
+PHASE 4 — HYBRID INTELLIGENCE ENGINE (RAG + SQL + QUERY ROUTER)
+================================================================================
+
+--------------------------------------------------------------------------------
+PROMPT 4.1 — ORG-UNIT-SCOPED VECTOR EMBEDDINGS + QDRANT
+--------------------------------------------------------------------------------
+
+Build /pipeline/embed_and_store.py — multilingual embeddings into scoped collections.
+
+COLLECTION NAMING (from language_registry.get_collection_name()):
+  STATE_GOVT:   {state_code}_{dept_slug}_docs  e.g. tn_health_docs, mh_education_docs
+  CENTRAL_GOVT: cg_{ministry_slug}_docs         e.g. cg_finance_ministry_docs
+
+COLLECTIONS TO CREATE (STATE_GOVT, customise slug per state):
+  {sc}_health_docs, {sc}_education_docs, {sc}_finance_docs, {sc}_revenue_docs,
+  {sc}_pwd_docs, {sc}_social_welfare_docs, {sc}_agriculture_docs,
+  {sc}_hrce_docs, {sc}_municipal_docs, {sc}_rural_development_docs,
+  {sc}_industries_docs, {sc}_it_docs, {sc}_transport_docs,
+  {sc}_energy_docs, {sc}_general_docs
+
+COLLECTIONS TO CREATE (CENTRAL_GOVT):
+  cg_finance_ministry_docs, cg_health_ministry_docs, cg_education_ministry_docs,
+  cg_home_affairs_docs, cg_external_affairs_docs, cg_defence_docs,
+  cg_agriculture_docs, cg_railways_docs, cg_road_transport_docs,
+  cg_power_ministry_docs, cg_petroleum_docs, cg_it_telecom_docs,
+  cg_commerce_docs, cg_labour_docs, cg_law_justice_docs,
+  cg_women_child_docs, cg_rural_development_docs, cg_urban_development_docs,
+  cg_jal_shakti_docs, cg_environment_docs, cg_culture_docs,
+  cg_science_tech_docs, cg_social_justice_docs, cg_general_docs
+
+EMBEDDING MODEL:
+  "BAAI/bge-m3" — natively supports all 22 Indian languages + English
+  Batch size: 32.
+  Validate on load:
+    tests = ["Tamil Nadu அரசு circular", "भारत सरकार अधिसूचना",
+             "కర్ణాటక ప్రభుత్వం", "ಕರ್ನಾಟಕ ಸರ್ಕಾರ"]
+    embeddings = model.encode(tests)
+    assert embeddings.shape == (4, 1024), "BGE-M3 must return 1024-dim vectors"
+    print("Multilingual embedding model verified ✓")
+
+QDRANT SETUP:
+  Connect via QDRANT_URL + QDRANT_API_KEY.
+  Per collection: vector_size=1024, distance=Cosine.
+  Payload indexes: org_unit (keyword), state_code (keyword), doc_type (keyword),
+    date (keyword), deployment_mode (keyword), scripts_present (keyword),
+    ref_number (keyword).
+
+EMBEDDING LOOP:
+  Group chunks by org_unit + state_code.
+  collection = get_collection_name(org_unit, state_code, deployment_mode)
+  Generate embeddings in batches of 32.
+  Payload per vector: {chunk_id, source_file, original_file, org_unit,
+    state_code, deployment_mode, doc_type, date, ref_number,
+    scripts_present, chunk_index, total_chunks, text}
+
+INCREMENTAL UPDATE:
+  Scroll Qdrant per collection → get existing chunk_ids.
+  Only embed new chunk_ids. Log: total / stored / new per collection.
+
+MULTILINGUAL RETRIEVAL VALIDATION (after storing):
+  Test queries by script — run one per primary language detected in corpus:
+    Hindi:    "भारत सरकार की योजना"
+    Tamil:    "தமிழ்நாடு அரசு திட்டம்"
+    Telugu:   "తెలంగాణ ప్రభుత్వ పథకం"
+    Kannada:  "ಕರ್ನಾಟಕ ಸರ್ಕಾರ ಯೋಜನೆ"
+    Malayalam:"കേരള സർക്കാർ പദ്ധതി"
+    Bengali:  "পশ্চিমবঙ্গ সরকার প্রকল্প"
+    Marathi:  "महाराष्ट्र सरकार योजना"
+  For each: print top 3 results. If no results: print WARNING for that language.
+
+Update /pipeline/collection_registry.json with final collection map.
+Print summary: collections created, vectors per collection, languages validated.
+
+--------------------------------------------------------------------------------
+PROMPT 4.2 — MULTILINGUAL RAG RETRIEVAL ENGINE
+--------------------------------------------------------------------------------
+
+Build /pipeline/rag_engine.py — multilingual document retrieval and generation.
+
+RAGEngine class:
+
+__init__(self, model_path=None):
+  model_path defaults to MODELS_DIR/india-govt-llm-final/
+  If missing: load base "meta-llama/Llama-3.1-8B-Instruct", log WARNING.
+  Load model with 4-bit BitsAndBytesConfig (bfloat16, nf4, double_quant).
+  Load tokenizer. Load BGE-M3. Connect Qdrant.
+  Load /pipeline/collection_registry.json.
+  Default top_k=5, score_threshold=0.35.
+
+get_collection(self, org_unit, state_code):
+  from pipeline.language_registry import get_collection_name
+  return get_collection_name(org_unit, state_code, self.deployment_mode)
+
+retrieve(self, query, org_unit, state_code, top_k=5, filters=None):
+  Detect query language using ftlangdetect.
+  Embed query with BGE-M3.
+  collection = get_collection(org_unit, state_code)
+  Build Qdrant filter from filters: doc_type, date_from, date_to, scripts.
+  Search collection. Return results above score_threshold.
+  If none above threshold: return [] with note.
+
+generate(self, query, retrieved_chunks, query_lang="en"):
+  If empty chunks:
+    Return "This information is not available in the government documents."
+  Build context with headers:
+    "[Source: {original_file} | {doc_type} | {org_unit} | {date}]\n{text}\n---\n"
+  System prompt:
+    "You are an India Government document assistant.
+     Answer ONLY from the provided government document context.
+     Rules:
+     1. Use only the provided context — no outside knowledge.
+     2. If not in context: say exactly 'This information is not available
+        in the provided government documents.'
+     3. Cite source filename and date in every answer.
+     4. Match the response language to the query language where possible.
+        (Hindi query → Hindi answer; Tamil query → Tamil answer)
+     5. Be concise, factual, and formal."
+  Generate: temperature=0.0, do_sample=False, max_new_tokens=512,
+    repetition_penalty=1.1
+
+query(self, question, org_unit, state_code, filters=None):
+  retrieve() → generate()
+  confidence = avg of top-3 chunk scores (not all top_k)
+  Return: {answer, sources, confidence, chunks_used, query_language}
+
+--------------------------------------------------------------------------------
+PROMPT 4.3 — TEXT-TO-SQL ENGINE (3-TIER DETERMINISTIC — NO LLaMA FOR SQL)
+--------------------------------------------------------------------------------
+
+Build /pipeline/sql_engine.py — natural language to SQL using three deterministic
+tiers. LLaMA is NOT used for SQL generation (it is a document reader, not a
+code model; incorrect SQL on govt databases is dangerous and unauditable).
+
+DATABASE TABLES (SQLAlchemy models in /api/db_models.py — created in Prompt 5.0):
+  scheme_enrollments, budget_allocations, employees, hospitals, schools,
+  land_records — all with state_code + department/ministry columns.
+
+SQLEngine class:
+
+__init__(self):
+  Connect to DATABASE_URL (SQLAlchemy, read-only user recommended).
+  Load schema description from PostgreSQL information_schema at startup.
+  Cache schema_map dict (see TIER 1).
+
+TIER 1 — Keyword-to-column mapping (covers ~80% of government queries):
+
+  SCHEMA_MAP = {
+    "beneficiar":  ("scheme_enrollments","COUNT(*)","status='active'"),
+    "enrolled":    ("scheme_enrollments","COUNT(*)",None),
+    "enrolment":   ("scheme_enrollments","COUNT(*)",None),
+    "scheme count":("scheme_enrollments","COUNT(*)",None),
+    "budget":      ("budget_allocations","SUM(allocated_amount)",None),
+    "allocation":  ("budget_allocations","SUM(allocated_amount)",None),
+    "expenditure": ("budget_allocations","SUM(spent_amount)",None),
+    "spent":       ("budget_allocations","SUM(spent_amount)",None),
+    "utilisation": ("budget_allocations","SUM(spent_amount)/SUM(allocated_amount)*100",None),
+    "balance":     ("budget_allocations","SUM(balance)",None),
+    "fund":        ("budget_allocations","SUM(released_amount)",None),
+    "employees":   ("employees","COUNT(*)","status='active'"),
+    "staff count": ("employees","COUNT(*)","status='active'"),
+    "vacancy":     ("employees","COUNT(*)","status='vacant'"),
+    "hospitals":   ("hospitals","COUNT(*)",None),
+    "beds":        ("hospitals","SUM(bed_count)",None),
+    "doctors":     ("hospitals","SUM(doctor_count)",None),
+    "nurses":      ("hospitals","SUM(nurse_count)",None),
+    "schools":     ("schools","COUNT(*)",None),
+    "students":    ("schools","SUM(student_count)",None),
+    "teachers":    ("schools","SUM(teacher_count)",None),
+    "land records":("land_records","COUNT(*)",None),
+    "patta":       ("land_records","COUNT(*)",None),
+  }
+
+  Also map common Hindi/regional query keywords:
+  {
+    "लाभार्थी":   ("scheme_enrollments","COUNT(*)",None),  # Hindi: beneficiary
+    "बजट":        ("budget_allocations","SUM(allocated_amount)",None),  # budget
+    "कर्मचारी":  ("employees","COUNT(*)","status='active'"),  # employees
+    "अस्पताल":   ("hospitals","COUNT(*)",None),  # hospitals
+    "विद्यालय":  ("schools","COUNT(*)",None),  # schools
+    "பயனாளர்":   ("scheme_enrollments","COUNT(*)",None),  # Tamil: beneficiary
+    "பள்ளி":     ("schools","COUNT(*)",None),  # Tamil: school
+    "ஆசிரியர்": ("schools","SUM(teacher_count)",None),  # Tamil: teacher
+  }
+
+  generate_sql_tier1(question, org_unit, state_code):
+    q_lower = question.lower()
+    # Also normalise numerals in question for year/number extraction
+    q_norm = normalise_numerals(question)
+    matched = None
+    for keyword, (table, agg, extra) in SCHEMA_MAP.items():
+      if keyword in q_lower or keyword in question:  # check original for non-ASCII
+        matched = (table, agg, extra); break
+    if not matched: return None
+
+    table, agg, extra = matched
+    where = [f"state_code='{state_code}'"] if state_code else []
+    col = "department" if deployment_mode == "STATE_GOVT" else "ministry"
+    if org_unit != "Unknown": where.append(f"{col}='{org_unit}'")
+    if extra: where.append(extra)
+
+    year = re.search(r'\b(20\d{2}|19\d{2})\b', q_norm)
+    if year: where.append(f"year={year.group(1)}")
+
+    district = re.search(r'\bin\s+([A-Za-z\u0900-\u0D7F]+)\b', question, re.I)
+    if district: where.append(f"district='{district.group(1).title()}'")
+
+    where_str = " AND ".join(where) if where else "1=1"
+    return f"SELECT {agg} as result FROM {table} WHERE {where_str} LIMIT 100"
+
+TIER 2 — Template fill (for structured multi-column queries):
+
+  TEMPLATES = {
+    "list":         "SELECT * FROM {table} WHERE {where} ORDER BY created_at DESC LIMIT 20",
+    "by_district":  "SELECT district,COUNT(*) as cnt FROM {table} WHERE {where} GROUP BY district ORDER BY cnt DESC LIMIT 25",
+    "by_year":      "SELECT year,{agg} as total FROM {table} WHERE {where} GROUP BY year ORDER BY year DESC LIMIT 10",
+    "by_type":      "SELECT type,COUNT(*) as cnt FROM {table} WHERE {where} GROUP BY type ORDER BY cnt DESC LIMIT 20",
+    "top_schemes":  "SELECT scheme_name,COUNT(*) as cnt FROM scheme_enrollments WHERE {where} GROUP BY scheme_name ORDER BY cnt DESC LIMIT 10",
+  }
+
+  generate_sql_tier2(question, org_unit, state_code):
+    q_lower = question.lower()
+    # Detect template type
+    if any(k in q_lower for k in ["list","show all","get all","display"]): tmpl="list"
+    elif any(k in q_lower for k in ["district","districtwise","district-wise"]): tmpl="by_district"
+    elif any(k in q_lower for k in ["year","yearly","annual","financial year"]): tmpl="by_year"
+    elif any(k in q_lower for k in ["type","category","kind"]): tmpl="by_type"
+    elif any(k in q_lower for k in ["scheme","top scheme","popular"]): tmpl="top_schemes"
+    else: return None
+
+    # Determine table from keyword scan
+    for keyword,(table,agg,_) in SCHEMA_MAP.items():
+      if keyword in q_lower: break
+    else: table = "scheme_enrollments"; agg = "COUNT(*)"
+
+    col = "department" if os.getenv("DEPLOYMENT_MODE") == "STATE_GOVT" else "ministry"
+    where_parts = []
+    if state_code: where_parts.append(f"state_code='{state_code}'")
+    if org_unit != "Unknown": where_parts.append(f"{col}='{org_unit}'")
+    where = " AND ".join(where_parts) if where_parts else "1=1"
+    return TEMPLATES[tmpl].format(table=table, where=where, agg=agg)
+
+TIER 3 — Safe fallback (no LLaMA, no guessing):
+  Return {sql_generated:None, rows:[], formatted_result:
+    "This query requires live database access. Please contact your
+     department data team or check the department dashboard directly.",
+    error:"Query pattern not matched"}
+
+validate_sql(self, sql):
+  Reject if contains (case-insensitive): DROP DELETE UPDATE INSERT ALTER TRUNCATE
+  Reject if not starting with SELECT
+  Auto-add LIMIT 100 if no LIMIT clause
+  Return sanitised SQL or None
+
+execute_sql(self, sql):
+  Validate first. Execute on read-only connection.
+  Catch all exceptions → return {error, rows:[], column_names:[]}
+  Return: {rows, column_names, row_count}
+
+format_results(self, question, rows, column_names):
+  Empty: "No records found in the database for this query."
+  Single value: return as string
+  <= 10 rows: readable table text
+  > 10 rows: "Found {n} records. Showing first 10:\n" + first 10
+
+query(self, question, org_unit, state_code):
+  Tier1 → Tier2 → Tier3
+  Return: {sql_generated, rows, formatted_result, error, row_count}
+
+--------------------------------------------------------------------------------
+PROMPT 4.4 — QUERY CLASSIFIER + RESULT FUSION
+--------------------------------------------------------------------------------
+
+Build /pipeline/query_router.py — unified query handler.
+
+CLASSIFIER — keyword + pattern matching (no LLM call, fast):
+
+  SQL_KEYWORDS = [
+    "how many","count of","total number","list all","show all","display all",
+    "what is the total","how much","how much budget","current status of",
+    "enrolled","beneficiar","expenditure","utilisation","utilization",
+    "vacancy","available beds","number of employees","staff count",
+    "how many schools","how many hospitals","population","census",
+    # Hindi SQL signals:
+    "कितने","संख्या","कुल","सूची","लाभार्थी","व्यय","बजट उपयोग",
+    # Tamil SQL signals:
+    "எத்தனை","எண்ணிக்கை","மொத்தம்","பயனாளர்கள்",
+    # Telugu:
+    "ఎంత మంది","సంఖ్య","మొత్తం",
+    # Kannada:
+    "ಎಷ್ಟು","ಸಂಖ್ಯೆ","ಒಟ್ಟು",
+  ]
+
+  RAG_KEYWORDS = [
+    "what does","what is the procedure","explain","according to","as per",
+    "G.O.","government order","circular","notification","scheme guidelines",
+    "policy","eligibility criteria","mentioned in","stated in","what rule",
+    "under which section","when was","how to apply",
+    # Hindi:
+    "क्या कहता है","नियम","प्रक्रिया","पात्रता","सरकारी आदेश",
+    # Tamil:
+    "என்ன சொல்கிறது","விதிமுறை","நடைமுறை","தகுதி","அரசாணை",
+    # Telugu:
+    "ఏమి చెప్పింది","నిబంధన","విధానం","అర్హత",
+    # Kannada:
+    "ಏನು ಹೇಳುತ್ತದೆ","ನಿಯಮ","ಪ್ರಕ್ರಿಯೆ","ಅರ್ಹತೆ",
+  ]
+
+  classify(question):
+    has_sql = any(k in question.lower() or k in question for k in SQL_KEYWORDS)
+    has_rag = any(k in question.lower() or k in question for k in RAG_KEYWORDS)
+    if has_sql and has_rag: return "MIXED"
+    if has_sql: return "SQL"
+    if has_rag: return "RAG"
+    return "RAG"  # default
+
+QueryRouter class:
+
+__init__(self):
+  Load RAGEngine. Load SQLEngine. Load collection_registry.json.
+  Read DEPLOYMENT_MODE, DEPLOYMENT_STATE from env.
+
+route_and_query(self, question, org_unit, state_code, filters=None):
+  query_type = classify(question)
+
+  RAG path:   rag_result = rag_engine.query(question, org_unit, state_code, filters)
+  SQL path:   sql_result = sql_engine.query(question, org_unit, state_code)
+  MIXED path: run BOTH with ThreadPoolExecutor(max_workers=2)
+
+  RESULT FUSION (MIXED or when both paths run):
+    Build unified context:
+      "DOCUMENT CONTEXT:\n{rag chunks with headers}\n\n
+       DATABASE CONTEXT:\n{sql formatted_result}\n"
+    Call rag_engine.generate(question, unified_context)
+    System prompt addition: "You have both document excerpts and live database
+      records. Cite both in your answer when relevant."
+
+  Return: {answer, query_type, sources, sql_generated, db_row_count,
+           confidence, chunks_used, query_language}
+
+CLI test: python -m pipeline.query_router --q "..." --org "Health" --state TN
+
+
+================================================================================
+PHASE 5 — DATABASE, WORKERS, AUTH, API GATEWAY
+================================================================================
+
+--------------------------------------------------------------------------------
+PROMPT 5.0 — DATABASE MIGRATIONS (ALEMBIC) — RUN FIRST IN PHASE 5
+--------------------------------------------------------------------------------
+
+Build /alembic/ + /api/db_models.py — PostgreSQL schema management.
+THIS MUST RUN BEFORE PROMPTS 5.1, 5.2, AND 5.3.
+
+1. Add alembic = "1.13.1" to pyproject.toml (already in v3.1 deps).
+   Run: alembic init alembic
+   Creates: /alembic/env.py, /alembic/versions/, alembic.ini
+
+2. Configure /alembic/env.py:
+   from dotenv import load_dotenv; load_dotenv()
+   import os
+   from api.db_models import Base
+   config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
+   target_metadata = Base.metadata
+
+3. Create /api/db_models.py — ALL models in one file:
+
+  from sqlalchemy import (Column, String, Integer, Boolean, Float,
+    DateTime, ForeignKey, Text, Numeric, Date, JSON)
+  from sqlalchemy.dialects.postgresql import UUID
+  from sqlalchemy.orm import DeclarativeBase
+  import uuid
+
+  class Base(DeclarativeBase): pass
+
+  class User(Base):
+    __tablename__ = "users"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    employee_id = Column(String(50), unique=True, nullable=False)
+    email = Column(String(255), unique=True, nullable=False)
+    hashed_password = Column(String(255), nullable=False)
+    full_name = Column(String(255), nullable=False)
+    department = Column(String(100), nullable=True)
+    ministry = Column(String(100), nullable=True)
+    state_code = Column(String(5), nullable=True)
+    deployment_mode = Column(String(20), nullable=True)
+    role = Column(String(30), nullable=False)
+    preferred_language = Column(String(10), default="en")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, nullable=False)
+    last_login = Column(DateTime, nullable=True)
+    must_change_password = Column(Boolean, default=True)
+
+  class APIKey(Base):
+    __tablename__ = "api_keys"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    key_hash = Column(String(64), unique=True, nullable=False)
+    name = Column(String(100), nullable=False)
+    department = Column(String(100), nullable=True)
+    ministry = Column(String(100), nullable=True)
+    state_code = Column(String(5), nullable=True)
+    created_by_user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    rate_limit_per_min = Column(Integer, default=60)
+    is_active = Column(Boolean, default=True)
+    expires_at = Column(DateTime, nullable=True)
+    created_at = Column(DateTime, nullable=False)
+    last_used_at = Column(DateTime, nullable=True)
+
+  class Session(Base):
+    __tablename__ = "sessions"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"))
+    token_hash = Column(String(64), unique=True, nullable=False)
+    created_at = Column(DateTime, nullable=False)
+    expires_at = Column(DateTime, nullable=False)
+    is_revoked = Column(Boolean, default=False)
+
+  class SchemeEnrollment(Base):
+    __tablename__ = "scheme_enrollments"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scheme_name = Column(String(255), nullable=False)
+    beneficiary_name = Column(String(255), nullable=True)
+    district = Column(String(100), nullable=True)
+    block = Column(String(100), nullable=True)
+    state_code = Column(String(5), nullable=True)
+    year = Column(Integer, nullable=True)
+    enrollment_date = Column(Date, nullable=True)
+    status = Column(String(50), default="active")
+    department = Column(String(100), nullable=True)
+    ministry = Column(String(100), nullable=True)
+    created_at = Column(DateTime, nullable=False)
+
+  class BudgetAllocation(Base):
+    __tablename__ = "budget_allocations"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    department = Column(String(100), nullable=True)
+    ministry = Column(String(100), nullable=True)
+    state_code = Column(String(5), nullable=True)
+    scheme_name = Column(String(255), nullable=True)
+    financial_year = Column(String(10), nullable=False)
+    allocated_amount = Column(Numeric(15,2), nullable=True)
+    released_amount = Column(Numeric(15,2), nullable=True)
+    spent_amount = Column(Numeric(15,2), nullable=True)
+    balance = Column(Numeric(15,2), nullable=True)
+    as_of_date = Column(Date, nullable=True)
+
+  class Employee(Base):
+    __tablename__ = "employees"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    employee_id = Column(String(50), unique=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    designation = Column(String(255), nullable=True)
+    grade = Column(String(50), nullable=True)
+    department = Column(String(100), nullable=True)
+    ministry = Column(String(100), nullable=True)
+    state_code = Column(String(5), nullable=True)
+    district = Column(String(100), nullable=True)
+    posting_date = Column(Date, nullable=True)
+    status = Column(String(30), default="active")
+
+  class Hospital(Base):
+    __tablename__ = "hospitals"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False)
+    district = Column(String(100), nullable=True)
+    state_code = Column(String(5), nullable=True)
+    block = Column(String(100), nullable=True)
+    type = Column(String(20), nullable=True)
+    bed_count = Column(Integer, default=0)
+    doctor_count = Column(Integer, default=0)
+    nurse_count = Column(Integer, default=0)
+    department = Column(String(100), nullable=True)
+    ministry = Column(String(100), nullable=True)
+
+  class School(Base):
+    __tablename__ = "schools"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name = Column(String(255), nullable=False)
+    district = Column(String(100), nullable=True)
+    state_code = Column(String(5), nullable=True)
+    block = Column(String(100), nullable=True)
+    type = Column(String(50), nullable=True)
+    student_count = Column(Integer, default=0)
+    teacher_count = Column(Integer, default=0)
+    medium = Column(String(100), nullable=True)
+    department = Column(String(100), nullable=True)
+    ministry = Column(String(100), nullable=True)
+
+  class LandRecord(Base):
+    __tablename__ = "land_records"
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    survey_no = Column(String(50), nullable=True)
+    district = Column(String(100), nullable=True)
+    taluk = Column(String(100), nullable=True)
+    village = Column(String(100), nullable=True)
+    state_code = Column(String(5), nullable=True)
+    owner_name = Column(String(255), nullable=True)
+    patta_no = Column(String(50), nullable=True)
+    area_acres = Column(Float, nullable=True)
+    land_type = Column(String(100), nullable=True)
+    last_updated = Column(Date, nullable=True)
+
+4. Generate and run first migration:
+   alembic revision --autogenerate -m "initial_schema"
+   alembic upgrade head
+
+5. Create /api/database.py:
+   from sqlalchemy import create_engine
+   from sqlalchemy.orm import sessionmaker
+   from .db_models import Base
+   import os
+   engine = create_engine(os.getenv("DATABASE_URL"), pool_pre_ping=True,
+     pool_size=10, max_overflow=20)
+   SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+   def get_db():
+     db = SessionLocal()
+     try: yield db
+     finally: db.close()
+
+6. Create /auth/seed_admin.py — first-deployment only:
+   Creates super admin from ADMIN_MASTER_KEY env var.
+   Sets must_change_password=True.
+   Prints employee_id and temp password to console.
+   Run: python -m auth.seed_admin
+
+--------------------------------------------------------------------------------
+PROMPT 5.1 — CELERY ASYNC TASK QUEUE (CPU EMBEDDING WORKER)
+--------------------------------------------------------------------------------
+
+Build /workers/ — async PDF ingestion with CPU/GPU separation.
+
+Create /workers/celery_app.py:
+  Celery(name="india_govt_llm_workers", broker=REDIS_URL, backend=REDIS_URL)
+  serializer=json, result_expires=86400, task_always_eager=False
+
+Create /workers/tasks.py:
+
+  @celery_app.task(bind=True, max_retries=3, queue="embedding")
+  def ingest_pdf_task(self, saved_path, filename, org_unit, state_code):
+    NOTE: saved_path is the ALREADY-SAVED path in /data/raw/.
+          Never pass temp file paths — save first, then queue.
+    Steps:
+    1. PROGRESS "OCR" 10%    → ingest_single_pdf(saved_path, org_unit, state_code)
+    2. PROGRESS "Cleaning" 30% → clean_single_file(processed_path)
+    3. PROGRESS "Metadata" 50% → extract_metadata_single(cleaned_path)
+    4. PROGRESS "Chunking" 65% → chunk_single_document(cleaned_path, metadata)
+    5. PROGRESS "Embedding" 80% → embed_and_store_chunks(chunks, org_unit, state_code)
+       NOTE: BGE-M3 runs on CPU in worker (CUDA_VISIBLE_DEVICES="")
+             device = "cpu" if not os.environ.get("CUDA_VISIBLE_DEVICES") else "cuda"
+    6. PROGRESS "Done" 100%
+
+    retry: self.retry(exc=exc, countdown=60*(2**self.request.retries))
+    On success: return {filename, org_unit, state_code, chunks_created,
+                        quality_score, doc_type, date}
+
+Create /workers/job_store.py:
+  Redis hash per job. Key: "job:{job_id}". TTL: 86400.
+  store_job(), get_job(), list_jobs(org_unit, state_code)
+
+Create /workers/start_worker_cpu.sh:
+  #!/bin/bash
+  CUDA_VISIBLE_DEVICES="" \
+  celery -A workers.celery_app worker \
+    --loglevel=info --concurrency=2 --queues=embedding -n worker_cpu@%h
+
+  Concurrency=2 safe because GPU not used; BGE-M3 runs on CPU.
+
+--------------------------------------------------------------------------------
+PROMPT 5.2 — JWT AUTH SERVICE (4 ROLES, REQ/MIN RATE LIMITS)
+--------------------------------------------------------------------------------
+
+Build /auth/ — complete authentication with multilingual user support.
+
+4 ROLES AND PERMISSIONS (all rate limits in req/min, Redis window=60s):
+  super_admin:
+    Query all orgs/states. Upload all. Manage all users + keys.
+    Rate: 500 req/min. No dept/ministry restriction in JWT.
+  dept_admin / ministry_admin:
+    Query own org only. Upload own org. Manage own users + keys.
+    Rate: 60 req/min.
+  dept_user / ministry_user:
+    Query own org only. Cannot upload or manage.
+    Rate: 20 req/min.
+  api_key:
+    Programmatic read-only. Scoped to one org.
+    Rate: 60 req/min default (configurable per key).
+
+ROLE RATE MAP (in /auth/rate_limiter.py):
+  ROLE_RATE_LIMITS = {
+    "super_admin": 500, "dept_admin": 60, "ministry_admin": 60,
+    "dept_user": 20, "ministry_user": 20, "api_key": 60
+  }
+  All use window_seconds=60 consistently.
+
+DB TABLES: users, api_keys, sessions (created in Prompt 5.0).
+
+Create /auth/auth_service.py — functions:
+
+  hash_password(plain) → bcrypt; verify_password(plain, hashed) → bool
+
+  create_user(employee_id, email, password, full_name, org_unit,
+              state_code, role, deployment_mode):
+    Insert User row. Hash password. must_change_password=True. Return user dict.
+
+  authenticate_user(employee_id_or_email, password, db):
+    Lookup by employee_id OR email. verify_password(). Update last_login.
+    Return user or raise HTTPException 401.
+
+  create_access_token(user_id, org_unit, state_code, role, deployment_mode):
+    JWT payload: {sub:user_id, org:org_unit, state:state_code,
+                  role:role, mode:deployment_mode, exp:now+JWT_EXPIRY_HOURS}
+    Sign with JWT_SECRET_KEY + JWT_ALGORITHM. Return token string.
+
+  verify_token(token, db):
+    Decode JWT. Check expiry. Check sessions table not revoked.
+    Return payload dict or raise 401.
+
+  create_api_key(name, org_unit, state_code, deployment_mode,
+                 created_by_id, rate_limit, expires_at, db):
+    raw_key = "sk-ig-" + {state_code[:2].lower()} + "-" + secrets.token_hex(16)
+    Store SHA-256(raw_key) in api_keys table. Return raw_key ONCE.
+
+  verify_api_key(raw_key, db):
+    SHA-256 hash → lookup. Check is_active + expires_at. Update last_used_at.
+    Return api_key record.
+
+  change_password(user_id, current_password, new_password, db):
+    Verify current. New must: len>=12, upper+lower+digit+symbol, != current.
+    Hash new. UPDATE users. REVOKE all sessions for user.
+    Return True or raise 400.
+
+Create /auth/dependencies.py:
+  get_current_user() — Bearer JWT header → verify_token() → user context
+  get_api_key_context() — X-API-Key header → verify_api_key() → context
+  unified auth dependency: tries JWT first, falls back to X-API-Key.
+  Both return: {user_id_or_key_hash, org_unit, state_code,
+                deployment_mode, role, rate_limit}
+  require_role(roles: list) — factory dependency, raises 403 if not in roles.
+
+Create /auth/rate_limiter.py:
+  check_rate_limit(key, max_requests, window_seconds=60):
+    Redis INCR "rate:{key}"; set TTL on first hit; raise 429 if over limit.
+
+Create /auth/seed_admin.py (see Prompt 5.0 step 6).
+
+--------------------------------------------------------------------------------
+PROMPT 5.3 — FASTAPI GATEWAY (UNIFIED API + PROMETHEUS METRICS)
+--------------------------------------------------------------------------------
+
+Build /api/main.py — production FastAPI server.
+
+STARTUP (lifespan):
+  1. Run Alembic migrations: subprocess.run(["alembic","upgrade","head"],check=True)
+  2. Initialize QueryRouter (loads RAGEngine + SQLEngine + BGE-M3)
+  3. Connect PostgreSQL via database.py
+  4. Setup Prometheus instrumentation (see Metrics section)
+  5. Log: model type, GPU VRAM used, Qdrant collection count
+  If model fails: log, start with router=None (/health shows model_loaded=False)
+SHUTDOWN: del model, torch.cuda.empty_cache()
+
+PROMETHEUS METRICS (add to app startup):
+  from prometheus_fastapi_instrumentator import Instrumentator
+  Instrumentator(should_group_status_codes=True,
+    excluded_handlers=["/health","/metrics"]).instrument(app).expose(app,endpoint="/metrics")
+
+  Custom metrics:
+  from prometheus_client import Gauge, Counter, Histogram
+  MODEL_LOADED = Gauge("llm_model_loaded","Fine-tuned model loaded")
+  GPU_VRAM_MB  = Gauge("llm_gpu_vram_mb","GPU VRAM used MB")
+  QUERY_CONF   = Histogram("llm_query_confidence","Confidence scores",
+                   buckets=[.1,.2,.3,.4,.5,.6,.7,.8,.9,1.0])
+  DEPT_QUERIES = Counter("llm_dept_queries_total","Queries by org",
+                   labelnames=["org_unit","state_code","query_type"])
+  LANG_QUERIES = Counter("llm_lang_queries_total","Queries by language",
+                   labelnames=["query_language"])
+
+AUTH: JWT Bearer first, X-API-Key fallback; both resolve to unified context.
+
+ENDPOINTS:
+
+  POST /auth/login — no auth
+    Body: {employee_id_or_email, password}
+    Brute force: 5 attempts/min per IP (Redis rate key "login:{client_ip}")
+    Returns: {access_token, token_type:"bearer", user:{name,org,state,role,
+              preferred_language, must_change_password}}
+
+  POST /auth/logout — JWT required
+    Revokes token in sessions table.
+
+  POST /auth/change-password — JWT required (all logged-in roles)
+    Body: {current_password, new_password, confirm_password}
+    Validate: match, len>=12, complexity, not same as current.
+    Revokes all user sessions. Returns: {message:"Password changed. Please re-login."}
+
+  POST /query — JWT or API key
+    Rate limit from context. Body:
+      {question (5–500 chars), doc_type?, date_from?, date_to?, top_k? (1–10)}
+    org_unit + state_code always from auth context (server-enforced isolation).
+    super_admin only: can pass {override_org, override_state} in body.
+    Call query_router.route_and_query(question, org_unit, state_code, filters)
+    Update metrics: QUERY_CONF, DEPT_QUERIES, LANG_QUERIES, GPU_VRAM_MB.
+    Response: {answer, query_type, sources, sql_generated?, db_row_count?,
+               confidence, chunks_used, query_id (uuid4), timestamp, query_language}
+
+  GET /health — no auth
+    {status, model_loaded, model_type, vector_db_connected,
+     collections:[{name,vector_count}], deployment_mode, state_code,
+     primary_languages, uptime_seconds, version:"3.1"}
+
+  POST /ingest — dept_admin / ministry_admin / super_admin only
+    Multipart PDF upload, max 50MB.
+    Validate magic bytes (%PDF). werkzeug.secure_filename() on filename.
+    SAVE FILE FIRST: saved_path = /data/raw/{uuid4}_{secure_filename}
+    Verify file saved and size > 0 before queuing.
+    THEN: task = ingest_pdf_task.delay(saved_path, filename, org_unit, state_code)
+    Return: {job_id:task.id, status:"queued", filename, org_unit, state_code,
+             saved_as:saved_filename}
+
+  GET /ingest/status/{job_id} — JWT required
+    Celery AsyncResult + Redis job_store. Returns progress pct, step, result.
+
+  GET /ingest/history — dept_admin+ only
+    Paginated list of ingestion jobs for user's org. ?page=1&limit=20
+
+  POST /auth/api-keys — dept_admin+ only
+    {name, rate_limit_per_min (max 200), expires_at}
+    Returns raw key ONCE in response. Log creation.
+
+  GET /auth/api-keys — dept_admin+ only. Returns masked key list.
+  DELETE /auth/api-keys/{key_id} — dept_admin+ only. Revoke key.
+
+  GET /admin/orgs — super_admin only
+    All orgs: doc count, vector count, query count, accuracy, last upload, status.
+
+  POST /admin/users — super_admin only
+    Create new user for any org/state. Set must_change_password=True.
+
+AUDIT LOG (background task, non-blocking):
+  /logs/query_log.jsonl per query:
+  {query_id, timestamp, user_or_key_hash, org_unit, state_code, deployment_mode,
+   query_type, question_length, answer_length, confidence, source_count,
+   response_ms, sql_generated_bool, query_language}
+  Never log raw question text (privacy).
+
+CORS: ALLOWED_ORIGINS env var (comma-separated). OpenAPI /docs: ENV=development only.
+
+
+================================================================================
+PHASE 6 — THREE REACT PORTALS
+================================================================================
+
+NOTE: All portals share /frontend/src/. Run: cd /frontend && npm install && npm run dev
+
+--------------------------------------------------------------------------------
+PROMPT 6.1 — SHARED REACT FRONTEND FOUNDATION
+--------------------------------------------------------------------------------
+
+Build /frontend/src/ shared infrastructure before individual portals.
+
+Create /frontend/src/api/client.js:
+  Axios instance:
+    baseURL: import.meta.env.VITE_API_URL || "http://localhost:8000/api/v1"
+    Request interceptor: attach "Authorization: Bearer {token}" from localStorage
+    Response interceptor: 401 → clear token → redirect to /login
+  Export constants:
+    DEPLOYMENT_MODE = import.meta.env.VITE_DEPLOYMENT_MODE || "STATE_GOVT"
+    DEPLOYMENT_LABEL = import.meta.env.VITE_DEPLOYMENT_LABEL || "India Govt LLM"
+  Export API functions: login(), logout(), changePassword(), query(),
+    ingest(), getIngestStatus(), getIngestHistory(),
+    getApiKeys(), createApiKey(), deleteApiKey(), getHealth()
+
+Create /frontend/src/context/AuthContext.jsx:
+  Context: {user, token, org_unit, state_code, role, deployment_mode,
+            preferred_language, must_change_password, login, logout, isLoading}
+  login(employee_id_or_email, password):
+    POST /auth/login → store {token, user} in localStorage
+    If must_change_password=True → redirect to /change-password
+    Else redirect by role:
+      super_admin → /admin
+      dept_admin / ministry_admin → /admin
+      dept_user / ministry_user → /chat
+  logout(): clear localStorage → redirect to /login
+
+Create /frontend/src/components/:
+  LoginPage.jsx — three role-card selector (User/Admin/API Dev) + login form
+  ChangePasswordPage.jsx — current + new + confirm fields, POST /auth/change-password
+  ProtectedRoute.jsx — checks auth + role, redirects if wrong
+  SourceCard.jsx — citation: filename, org, date, relevance score
+  ConfidenceBadge.jsx — 0–1 as colored pill (green/yellow/red)
+  QueryTypeBadge.jsx — "Document" | "Database" | "Mixed" badge
+  ScriptBadge.jsx — shows detected script: "Tamil" | "Hindi" | "Telugu" etc.
+  LoadingDots.jsx — animated three dots for LLM generation state
+  OrgBadge.jsx — colored pill with org/dept/ministry name
+  LanguageSelector.jsx — dropdown for all Indian languages + English
+    Shows language in its own script: தமிழ் | हिंदी | తెలుగు | ಕನ್ನಡ | മലയാളം
+    Stores selection to localStorage as preferred_language
+    Sends as Accept-Language header on /query calls
+
+Create /frontend/src/App.jsx — React Router:
+  /login         → LoginPage (public)
+  /change-password → ChangePasswordPage (requires JWT, any role)
+  /chat          → ProtectedRoute(roles:[dept_user,ministry_user,dept_admin,
+                     ministry_admin,super_admin]) → ChatPortal
+  /admin         → ProtectedRoute(roles:[dept_admin,ministry_admin,super_admin])
+                     → AdminPortal
+  /api-portal    → ProtectedRoute(roles:[dept_admin,ministry_admin,super_admin])
+                     → ApiDevPortal
+  /*             → redirect to /login
+
+--------------------------------------------------------------------------------
+PROMPT 6.2 — DEPT/MINISTRY USER CHAT PORTAL
+--------------------------------------------------------------------------------
+
+Build /frontend/src/portals/chat/ChatPortal.jsx
+
+LAYOUT: Fixed-height sidebar + main chat area (no page scroll).
+
+SIDEBAR:
+  - Deployment label (VITE_DEPLOYMENT_LABEL) + org unit name
+  - Logged-in user name + role badge + org badge
+  - Scope indicator: "Searching: {org_unit} docs only" with green dot
+  - Language selector (LanguageSelector component)
+    Selected language sent as query preference to /query endpoint
+  - Quick questions (3–5 presets loaded from /frontend/src/config/quick_questions.json
+    structured by deployment_mode + org_unit, or generic if not found):
+    State Health example: "Latest health circulars", "CMHIS eligibility",
+      "Hospital recruitment G.O."
+    Central Health example: "Latest MoHFW advisories", "CGHS eligibility",
+      "AIIMS recruitment notification"
+  - Chat history (last 10 sessions, stored in localStorage by org+state key)
+  - Sign out button
+  - Change password link (if must_change_password=True: show warning banner)
+
+MAIN CHAT AREA:
+  Messages:
+    Bot (left): gray bubble. After each bot message:
+      Sources (collapsed by default, click to expand): SourceCard × N
+      ConfidenceBadge + QueryTypeBadge + ScriptBadge (detected response script)
+      Response time (muted, small)
+    User (right): primary color bubble
+    Loading: LoadingDots in bot position while waiting
+
+  Welcome message:
+    "Welcome! I am the {org_unit} document assistant for {deployment_label}.
+     I can answer questions about {doc_types} in {primary_languages_display}.
+     How can I help you today?"
+
+  Input area:
+    Textarea (Enter=send, Shift+Enter=newline); Send button.
+    Character counter (max 500). Below input: language hint.
+    Indian script keyboard note when non-Latin language selected.
+
+  Error states:
+    confidence < 0.3: "Low confidence — your dept admin may need to add more documents."
+    503: "System starting up. Please try in 2 minutes."
+    401: Redirect to login.
+    429: "Too many requests. Please wait a moment."
+
+  API call: POST /query {question, top_k:5}
+    org_unit + state_code enforced server-side from JWT.
+
+  History: store/restore from localStorage. Clear button.
+  Accessibility: ARIA labels; screen reader announcement on new bot message.
+
+--------------------------------------------------------------------------------
+PROMPT 6.3 — DEPT/MINISTRY ADMIN UPLOAD PORTAL
+--------------------------------------------------------------------------------
+
+Build /frontend/src/portals/admin/AdminPortal.jsx
+
+SIDEBAR NAV:
+  Dashboard | Upload Documents | Ingestion Jobs | Document Library
+  | Department/Ministry Users | Usage Stats
+  | [super_admin only] All Organisations Overview
+
+DASHBOARD:
+  4 metric cards: Documents indexed / Jobs running / Accuracy score / Queries today
+  Recent ingestion jobs table (filename, org, quality, status badge)
+  Document breakdown by doc_type (donut summary)
+
+UPLOAD DOCUMENTS:
+  Drag-and-drop zone + file browser. Accept: .pdf. Max 50MB. Multi-file.
+  File list preview with remove buttons.
+  Options: Doc type (auto-detect or manual), Access level (Public/Internal/Restricted).
+  Upload sequence (CORRECTED):
+    1. POST /ingest (multipart) — server saves file FIRST then queues
+    2. Receive job_id in response
+    3. Poll GET /ingest/status/{job_id} every 3s
+  Per-file progress: Queued → OCR → Cleaning → Metadata → Chunking → Embedding → Done/Failed
+  Quality badge: ≥70=green, 40–69=yellow, <40=red with "Needs review" warning
+
+INGESTION JOBS:
+  Filterable table: status / date / org. Retry failed jobs button.
+
+DOCUMENT LIBRARY:
+  All docs in org's collection. Search/filter: doc_type / date / script.
+  Columns: filename, doc_type, date, ref_number, chunks, quality,
+           scripts_present, access_level.
+  Delete action (removes from Qdrant + logs deletion).
+
+DEPARTMENT/MINISTRY USERS:
+  User table: name, employee_id, role, preferred_language, last_login, status.
+  Create user modal: {full_name, employee_id, email, role, temp_password}
+    → must_change_password auto-set to True.
+  Deactivate user button.
+  API Keys section:
+    Masked key list: name, rate_limit, expiry, usage count.
+    Create key modal: {name, rate_limit (max 200/min), expires_at}
+    → Raw key shown ONCE in copyable modal with: "Save this key now.
+       It cannot be retrieved again." warning banner.
+    Delete/revoke key button.
+
+USAGE STATS:
+  Query count by day (30-day chart). Top question categories.
+  Confidence distribution histogram. Avg response time. Language breakdown chart.
+
+[SUPER_ADMIN] ALL ORGS:
+  Table: all orgs with doc count, vector count, daily queries, accuracy,
+         last upload, status (Active/Low data/Needs docs).
+  Click org → opens that org's library + jobs.
+  Add new org button → creates Qdrant collection + seeds first admin user.
+
+--------------------------------------------------------------------------------
+PROMPT 6.4 — API DEVELOPER PORTAL
+--------------------------------------------------------------------------------
+
+Build /frontend/src/portals/apidev/ApiDevPortal.jsx
+
+SIDEBAR: My API Keys | Code Samples | Usage Stats | API Docs | Sign out
+Live rate limit indicator: "{used}/{limit} req this minute"
+
+MY API KEYS:
+  Metrics: requests this month / success rate / avg response time.
+  Keys table: masked key (last 6 chars), name, org scope, rate limit,
+              today's count, expiry, status, revoke button.
+  Request key button (sends to dept admin for approval).
+  Note: "API keys are scoped to your organisation only. Contact Super Admin
+         for cross-organisation access."
+
+CODE SAMPLES — tabs: cURL | Python | JavaScript | Hindi query | Tamil query:
+
+  cURL:
+    curl -X POST {VITE_API_URL}/query \
+      -H "X-API-Key: sk-ig-{state}-••••••••" \
+      -H "Content-Type: application/json" \
+      -d '{"question":"What is the procedure for...","top_k":5}'
+
+  Python:
+    import requests
+    response = requests.post(f"{API_URL}/query",
+      headers={"X-API-Key":"sk-ig-{state}-..."},
+      json={"question":"What is the eligibility for CMHIS?","top_k":5})
+    data = response.json()
+    print(data["answer"])
+    for src in data["sources"]: print(f"  → {src['filename']} ({src['date']})")
+
+  JavaScript:
+    const res = await fetch(`${API_URL}/query`, {
+      method:"POST",
+      headers:{"X-API-Key":"sk-ig-...","Content-Type":"application/json"},
+      body: JSON.stringify({question:"...",top_k:5})
+    })
+    const {answer, sources, confidence, query_type} = await res.json()
+
+  Hindi query example:
+    json={"question":"स्वास्थ्य विभाग की नई नीति क्या है?","top_k":5}
+
+  Tamil query example:
+    json={"question":"தமிழ்நாடு அரசு சுகாதாரத் திட்டம் என்ன?","top_k":5}
+
+  Copy-to-clipboard button on each block.
+
+USAGE STATS: Requests/day line chart (30 days). Requests by hour bar chart.
+  Top 10 question categories. Latency percentiles p50/p90/p95/p99.
+  Error rate by type. Language distribution of queries.
+
+API DOCS (inline, not external):
+  Base URL, auth methods (Bearer JWT + X-API-Key), all endpoints with params,
+  response schemas, error codes (400/401/403/404/429/500/503),
+  rate limiting rules, org scoping explanation, language support list.
+  Formatted as clean readable documentation (not Swagger UI).
+
+================================================================================
+PHASE 7 — EVALUATION
+================================================================================
+
+--------------------------------------------------------------------------------
+PROMPT 7.1 — MULTILINGUAL EVAL DATASET BUILDER (SESSION RESUME)
+--------------------------------------------------------------------------------
+
+Build /evaluation/build_eval_dataset.py — interactive human-curated builder.
+
+WHY MANUAL: Auto-generated questions test the same model that generated them
+(circular). A domain expert who reads actual government documents must create
+the evaluation set.
+
+SETUP:
+  Load 200 random chunks from /data/chunks/chunks.jsonl stratified by:
+  - org_unit (min 20 per org if possible)
+  - doc_type (spread across types)
+  - scripts_present (include Tamil, Hindi, Telugu, etc. proportionally)
+  Load progress from /evaluation/.eval_progress.json if it exists (SESSION RESUME).
+  Skip already-reviewed chunks.
+
+PER CHUNK DISPLAY:
+  =====================================================================
+  [{i}/{total}] SOURCE: {original_file}
+  TYPE: {doc_type} | ORG: {org_unit} | STATE: {state_code} | DATE: {date}
+  SCRIPTS: {scripts_present}
+  =====================================================================
+  {full chunk text — no truncation}
+  =====================================================================
+  [q] Ask a question  [s] Skip  [d] Poor quality  [done] Finish
+  =====================================================================
+
+If [q]:
+  "Your question:" (can be in any Indian language — type in preferred script)
+  Show chunk again.
+  "Correct answer (from the document):"
+  "Difficulty (1=easy  2=medium  3=hard):"
+  "Question language (1=English  2=Hindi  3=Tamil  4=Telugu  5=Kannada
+                       6=Malayalam  7=Bengali  8=Marathi  9=Other):"
+  Save to eval set. Save progress.
+
+SESSION SAVE: after every question, write to /evaluation/.eval_progress.json:
+  {reviewed_chunk_ids, saved_questions_count}
+
+Save /evaluation/eval_questions.json:
+  [{question, expected_answer, source_chunk_id, source_file, org_unit,
+    state_code, doc_type, date, difficulty, question_language, scripts_present}]
+
+Target: 100+ questions (30 easy, 50 medium, 20 hard).
+Minimum: 5 questions in each primary language of deployment.
+Print: distribution table, language breakdown, warning if below targets.
+
+[MANUAL STEP]: A domain expert familiar with Indian government documents
+must run this script and create the evaluation questions.
+Estimated time: 2–4 hours for 100 questions.
+
+--------------------------------------------------------------------------------
+PROMPT 7.2 — ACCURACY BENCHMARKING + MULTILINGUAL REPORTING
+--------------------------------------------------------------------------------
+
+Build /evaluation/benchmark.py — comprehensive accuracy measurement.
+
+PREREQUISITE: /evaluation/eval_questions.json must have >= 50 questions.
+If missing: exit with clear message directing to Prompt 7.1.
+
+Initialize QueryRouter. Run route_and_query() for each question.
+
+METRICS:
+
+  M1 — Retrieval Accuracy (RAG questions only):
+    Retrieval@1, @3, @5 — did source_file appear in top N results?
+
+  M2 — Answer Faithfulness:
+    Content word overlap between answer and retrieved chunks.
+    Remove stopwords (load from indian_stopwords.json by question_language).
+    Score: 0.0–1.0
+
+  M3 — Answer Relevance (semantic):
+    Cosine similarity: embed(question) vs embed(answer) via BGE-M3.
+    Score: 0.0–1.0
+
+  M4 — Hallucination Detection:
+    Per sentence in answer: max cosine similarity to any retrieved chunk.
+    Flag if max_similarity < 0.35. Rate = flagged/total sentences.
+
+  M5 — SQL Accuracy (SQL-type questions):
+    Valid SQL generated? Rows returned? Answer contains expected value?
+    Score: 0.0–1.0
+
+  M6 — Multilingual Accuracy:
+    Group by question_language. Report all metrics per language.
+    Detect if model degrades on specific scripts.
+
+  M7 — Latency: p50, p90, p95 ms.
+
+PASS THRESHOLDS:
+  Retrieval@5 > 85%, Faithfulness > 80%, Hallucination < 5%,
+  p95 < 10,000ms, SQL accuracy > 80% (if SQL qs present).
+  Per-language: warn if any language Retrieval@5 < 70%.
+
+REPORTS:
+  /evaluation/benchmark_report.json:
+  {run_date, total_questions, retrieval@1/@3/@5, avg_faithfulness,
+   avg_relevance, hallucination_rate, sql_accuracy, p50_ms, p90_ms, p95_ms,
+   by_org: {…}, by_doc_type: {…}, by_difficulty: {easy/medium/hard: {…}},
+   by_query_type: {RAG/SQL/MIXED: {…}},
+   by_language: {en/hi/ta/te/…: {retrieval@5, faithfulness, hallucination}},
+   worst_10_questions: [{question, expected, got, confidence}],
+   pass_fail: {retrieval/faithfulness/hallucination/latency/sql/overall: bool}}
+
+  /evaluation/benchmark_report.html:
+  Clean HTML dashboard. Color coded: green=pass, red=fail, yellow=borderline.
+  Per-language table. Per-org table. Worst questions list.
+  Print SYSTEM READY or SYSTEM NEEDS IMPROVEMENT at the end.
+
+================================================================================
+PHASE 8 — DEPLOYMENT
+================================================================================
+
+--------------------------------------------------------------------------------
+PROMPT 8.1 — DOCKER + K8S + REDIS MANIFEST + PROMETHEUS + CI/CD
+--------------------------------------------------------------------------------
+
+Create complete production deployment.
+
+1. /deploy/Dockerfile.api:
+   Base: nvidia/cuda:12.1-cudnn8-runtime-ubuntu22.04
+   Install Python 3.11, pip, poetry.
+   apt-get install -y tesseract-ocr tesseract-ocr-eng tesseract-ocr-hin
+     tesseract-ocr-tam tesseract-ocr-tel tesseract-ocr-kan tesseract-ocr-mal
+     tesseract-ocr-ben tesseract-ocr-mar tesseract-ocr-guj tesseract-ocr-pan
+     tesseract-ocr-ori tesseract-ocr-asm tesseract-ocr-urd tesseract-ocr-san
+     tesseract-ocr-nep tesseract-ocr-mni libicu-dev libgomp1
+   COPY pyproject.toml poetry.lock first (cache layer). RUN poetry install --no-dev.
+   COPY /api /pipeline /auth /workers /alembic /models directories.
+   RUN useradd -m appuser; USER appuser
+   EXPOSE 8000
+   HEALTHCHECK: GET http://localhost:8000/health, interval=30s,
+     start_period=120s, retries=3
+   CMD: uvicorn api.main:app --host 0.0.0.0 --port 8000 --workers 1
+
+2. /deploy/Dockerfile.worker:
+   Same base as api (needs tesseract for OCR step).
+   ENV CUDA_VISIBLE_DEVICES=""   (CPU-only worker for embeddings)
+   CMD: /workers/start_worker_cpu.sh
+
+3. /deploy/Dockerfile.frontend:
+   Stage 1: node:20-alpine → npm install && npm run build
+   Stage 2: nginx:1.25-alpine → COPY dist → /usr/share/nginx/html
+   COPY /deploy/nginx-frontend.conf → /etc/nginx/conf.d/default.conf
+   EXPOSE 80
+
+4. /deploy/docker-compose.yml:
+   Services (all on internal network "india_govt_net"):
+   - api:        Dockerfile.api, GPU device reservation
+   - worker-cpu: Dockerfile.worker, NO GPU, 2 replicas
+   - frontend:   Dockerfile.frontend, port 3000
+   - postgres:   postgres:16-alpine, volume for /var/lib/postgresql/data
+   - qdrant:     qdrant/qdrant:v1.9.1, volume for /qdrant/storage
+   - redis:      redis:7.2-alpine, args: --appendonly yes --maxmemory 2gb
+                   --maxmemory-policy allkeys-lru, volume for /data
+   - nginx:      nginx:1.25-alpine, ports 80:80 443:443, only external service
+   - prometheus: prom/prometheus:v2.52.0,
+                   mount /deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+   - grafana:    grafana/grafana:10.4.2, mount /deploy/grafana/dashboards/
+
+5. /deploy/nginx.conf (reverse proxy + security):
+   SSL termination (cert paths from env vars).
+   upstream api { server api:8000; }
+   upstream frontend { server frontend:80; }
+   /api/v1/ → api upstream
+   /metrics  → block (not public)
+   /         → frontend upstream
+   Rate limiting: connection-level only (limit_conn 20 per IP).
+     Do NOT duplicate req/min limiting — FastAPI handles that.
+   Allowed IPs: load from /etc/nginx/allowed_ips.conf.
+   Block others: return 403.
+   Gzip: on for application/json text/html text/css application/javascript.
+   add_header X-Content-Type-Options nosniff;
+   add_header X-Frame-Options DENY;
+   add_header Content-Security-Policy "default-src 'self'";
+
+6. /deploy/prometheus.yml:
+   global: scrape_interval: 15s
+   scrape_configs:
+   - job_name: india-govt-llm-api
+     static_configs: [{targets: ["api:8000"]}]
+     metrics_path: /metrics
+   - job_name: qdrant
+     static_configs: [{targets: ["qdrant:6333"]}]
+     metrics_path: /metrics
+   - job_name: redis
+     static_configs: [{targets: ["redis-exporter:9121"]}]
+   - job_name: postgres
+     static_configs: [{targets: ["postgres-exporter:9187"]}]
+
+7. /deploy/grafana/dashboards/llm_overview.json:
+   Antigravity: generate Grafana 10.x dashboard JSON with 8 panels:
+   (1) Query rate by org (2) p95 latency (3) GPU VRAM gauge
+   (4) Confidence distribution (5) Ingestion queue depth
+   (6) Per-language query distribution (7) Hallucination rate trend
+   (8) Active collections with vector counts
+
+8. /deploy/k8s/ — Kubernetes manifests:
+
+   /deploy/k8s/api-deployment.yaml:
+     replicas: 2
+     image: {REGISTRY_URL}/india-govt-llm-api:latest
+     resources: requests {memory:12Gi, cpu:2} limits {memory:24Gi, cpu:4}
+     GPU: nvidia.com/gpu: "1" in both requests + limits
+     readinessProbe: GET /health, initialDelaySeconds:120, periodSeconds:30
+     livenessProbe: GET /health, initialDelaySeconds:150, periodSeconds:60
+     envFrom: ConfigMap/india-govt-llm-config + Secret/india-govt-llm-secrets
+
+   /deploy/k8s/worker-deployment.yaml:
+     replicas: 2 (CPU workers, no GPU)
+     env: CUDA_VISIBLE_DEVICES: ""
+     No GPU resource reservation. No HTTP probes.
+
+   /deploy/k8s/hpa.yaml:
+     minReplicas: 2, maxReplicas: 5
+     Scale on CUSTOM METRIC: http_requests_pending (NOT cpu — LLM is GPU-bound)
+     Implement via prometheus-adapter reading llm_queries_in_flight metric.
+     scaleDown stabilizationWindowSeconds: 300 (avoid thrashing)
+     scaleUp: trigger when pending > 10
+
+   /deploy/k8s/redis-deployment.yaml:
+     Deployment (not StatefulSet for simplicity; use StatefulSet for HA Redis).
+     image: redis:7.2-alpine
+     args: [--appendonly, yes, --maxmemory, 2gb, --maxmemory-policy, allkeys-lru]
+     resources: requests {memory:512Mi,cpu:250m} limits {memory:2Gi,cpu:500m}
+     PVC: 8Gi ReadWriteOnce for /data
+     Service: ClusterIP redis-service:6379
+
+   /deploy/k8s/postgres-statefulset.yaml:
+     StatefulSet. image: postgres:16-alpine
+     PVC: 50Gi ReadWriteOnce for /var/lib/postgresql/data
+
+   /deploy/k8s/qdrant-statefulset.yaml:
+     StatefulSet. image: qdrant/qdrant:v1.9.1
+     PVC: 200Gi ReadWriteOnce for /qdrant/storage
+
+   /deploy/k8s/configmap.yaml: all non-secret env vars including
+     DEPLOYMENT_MODE, DEPLOYMENT_STATE, PRIMARY_LANGUAGES, ALL_OCR_LANGUAGES,
+     VITE_API_URL, VITE_DEPLOYMENT_MODE, VITE_DEPLOYMENT_LABEL
+
+   /deploy/k8s/secret.yaml:
+     QDRANT_API_KEY, JWT_SECRET_KEY, POSTGRES_PASSWORD, HF_TOKEN,
+     API_SECRET_KEY, ADMIN_MASTER_KEY
+
+   /deploy/k8s/services.yaml:
+     ClusterIP for: api-service:8000, worker-service,
+     postgres-service:5432, qdrant-service:6333, redis-service:6379
+
+   /deploy/k8s/ingress.yaml:
+     Nginx ingress class. TLS with cert-manager annotation.
+     /api/v1 → api-service; / → frontend-service
+     Annotations: nginx.ingress.kubernetes.io/proxy-body-size: 55m
+       (allows 50MB PDF upload + overhead)
+
+9. /deploy/.github/workflows/ci-cd.yml:
+
+   On push to main:
+     job: test
+       ruff /pipeline /api /auth /workers
+       pytest /evaluation/ (if eval_questions.json exists)
+     job: build (needs: test)
+       - Login to registry:
+           uses: docker/login-action@v3
+           with: registry/username/password from secrets
+             REGISTRY_URL, REGISTRY_USER, REGISTRY_TOKEN
+       - Set tags: SHA tag + latest tag
+       - Build + push: api, worker-cpu, frontend (separate steps)
+     job: deploy-staging (needs: build)
+       kubectl set image deployment/india-govt-llm-api api={SHA_TAG} -n staging
+       kubectl rollout status deployment/india-govt-llm-api -n staging --timeout=300s
+       Smoke test: curl https://staging.llm.tn.gov.in/health → check status=="ok"
+       If fails: kubectl rollout undo -n staging; exit 1
+
+   On workflow_dispatch (input: environment=production):
+     Require manual approval (GitHub Environment "production" protection rule).
+     kubectl set image on production namespace.
+     kubectl rollout status --timeout=600s
+     Run quick benchmark: python /evaluation/benchmark.py --quick --sample 20
+     If benchmark FAIL: rollout undo + send notification.
+     If SUCCESS: send notification with benchmark summary.
+
+================================================================================
+FINAL SUMMARY
+================================================================================
+
+Total prompts:     22 (Phase 1×3, Phase 2×2, Phase 3×2+manual, Phase 4×4,
+                      Phase 5×4, Phase 6×4, Phase 7×2+manual, Phase 8×1)
+Manual steps:      2 (training data review, eval dataset curation)
+Languages:         22 Indian scheduled languages + English
+Deployment modes:  2 (CENTRAL_GOVT + STATE_GOVT with all states/UTs)
+Database tables:   9 (users, api_keys, sessions + 6 govt data tables)
+Qdrant collections:14 per state / 24 for Central Govt
+Security roles:    4 (super_admin, dept/ministry_admin, dept/ministry_user, api_key)
+GPU (training):    1× A100 80GB or 2× A6000 48GB minimum
+GPU (inference):   1× A10G 24GB per pod minimum
+Storage (Qdrant):  200GB to start, grows with corpus
+Storage (PG):      50GB
+Redis:             4GB
+
+BUILD ORDER CHECKLIST:
+  [ ] Set DEPLOYMENT_MODE + PRIMARY_LANGUAGES in .env before anything
+  [ ] Corpus Readiness Checklist complete
+  [ ] Run Prompts 1.1 → 1.2 → 1.3 → 2.1 → 2.2 in order
+  [ ] Check chunk count: wc -l /data/chunks/chunks.jsonl
+      < 5000: SKIP Phase 3, go to Phase 4
+      >= 5000: Run 3.1 → manual review → 3.2
+  [ ] Run Prompts 4.1 → 4.2 → 4.3 → 4.4
+  [ ] Run Prompt 5.0 FIRST (Alembic), then 5.1 → 5.2 → 5.3
+  [ ] Run seed_admin.py for first-deployment setup
+  [ ] Run Prompts 6.1 → 6.2 → 6.3 → 6.4 (cd /frontend && npm install first)
+  [ ] Human domain expert runs Prompt 7.1 (eval dataset curation)
+  [ ] Run Prompt 7.2 (benchmark). Fix any FAIL metrics before deploy.
+  [ ] Run Prompt 8.1 (Docker/K8s/CI-CD)
+  [ ] Configure GitHub secrets: REGISTRY_URL, REGISTRY_USER, REGISTRY_TOKEN
+  [ ] Set GitHub Environment "production" with required reviewer for prod deploys
+
+================================================================================
+END OF FILE — India Government LLM v3.1 COMPLETE
+================================================================================

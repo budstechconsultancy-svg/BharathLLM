@@ -1,0 +1,558 @@
+{
+  "run_date": "2026-06-20T13:03:26.695242",
+  "total_tests": 85,
+  "passed": 85,
+  "failed": 0,
+  "pass_rate_pct": 100.0,
+  "classification_accuracy_pct": 100.0,
+  "suites": {
+    "Classification": {
+      "passed": 10,
+      "failed": 0
+    },
+    "LanguageRegistry": {
+      "passed": 23,
+      "failed": 0
+    },
+    "NumeralNorm": {
+      "passed": 4,
+      "failed": 0
+    },
+    "Metadata": {
+      "passed": 5,
+      "failed": 0
+    },
+    "SQLEngine": {
+      "passed": 5,
+      "failed": 0
+    },
+    "API": {
+      "passed": 8,
+      "failed": 0
+    },
+    "EvalData": {
+      "passed": 4,
+      "failed": 0
+    },
+    "Security": {
+      "passed": 9,
+      "failed": 0
+    },
+    "DeployConfig": {
+      "passed": 17,
+      "failed": 0
+    }
+  },
+  "results": [
+    {
+      "suite": "Classification",
+      "name": "\"How many teachers are there in Chennai schools?\"",
+      "passed": true,
+      "detail": "expected=SQL, got=SQL"
+    },
+    {
+      "suite": "Classification",
+      "name": "\"What is the eligibility for Amma Vodi scheme?\"",
+      "passed": true,
+      "detail": "expected=RAG, got=RAG"
+    },
+    {
+      "suite": "Classification",
+      "name": "\"Explain the procedure for patta transfer\"",
+      "passed": true,
+      "detail": "expected=MIXED, got=MIXED"
+    },
+    {
+      "suite": "Classification",
+      "name": "\"Total expenditure on health department 2023\"",
+      "passed": true,
+      "detail": "expected=SQL, got=SQL"
+    },
+    {
+      "suite": "Classification",
+      "name": "\"How many beneficiaries and also explain the eligibility…\"",
+      "passed": true,
+      "detail": "expected=MIXED, got=MIXED"
+    },
+    {
+      "suite": "Classification",
+      "name": "\"Government order on new teacher recruitment\"",
+      "passed": true,
+      "detail": "expected=MIXED, got=MIXED"
+    },
+    {
+      "suite": "Classification",
+      "name": "\"Count of hospital beds in Madurai district\"",
+      "passed": true,
+      "detail": "expected=SQL, got=SQL"
+    },
+    {
+      "suite": "Classification",
+      "name": "\"Show all budget allocations along with eligibility rule…\"",
+      "passed": true,
+      "detail": "expected=MIXED, got=MIXED"
+    },
+    {
+      "suite": "Classification",
+      "name": "\"What does GO Ms No 45 say about land acquisition?\"",
+      "passed": true,
+      "detail": "expected=RAG, got=RAG"
+    },
+    {
+      "suite": "Classification",
+      "name": "\"List vacancies in Tamil Nadu Police 2024\"",
+      "passed": true,
+      "detail": "expected=SQL, got=SQL"
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'ta' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'hi' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'te' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'kn' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'ml' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'or' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'bn' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'gu' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'pa' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'mr' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'as' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'ur' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'sa' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'kok' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'mai' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'mni' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'sat' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'ne' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'sd' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'ks' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'doi' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Language code 'bho' registered",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "LanguageRegistry",
+      "name": "Total languages >= 20 (got 23)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "NumeralNorm",
+      "name": "normalise_numerals('௧௦') == '10'",
+      "passed": true,
+      "detail": "got '10'"
+    },
+    {
+      "suite": "NumeralNorm",
+      "name": "normalise_numerals('௨௫') == '25'",
+      "passed": true,
+      "detail": "got '25'"
+    },
+    {
+      "suite": "NumeralNorm",
+      "name": "normalise_numerals('௩') == '3'",
+      "passed": true,
+      "detail": "got '3'"
+    },
+    {
+      "suite": "NumeralNorm",
+      "name": "normalise_numerals('normal text 42') == 'normal text 42'",
+      "passed": true,
+      "detail": "got 'normal text 42'"
+    },
+    {
+      "suite": "Metadata",
+      "name": "extract_doc_type identifies GO",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "Metadata",
+      "name": "extract_ref_number finds G.O. number",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "Metadata",
+      "name": "parse_date finds 2023-03-15",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "Metadata",
+      "name": "extract_doc_type identifies CIRCULAR",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "Metadata",
+      "name": "parse_date handles Saka Era without crash",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "SQLEngine",
+      "name": "generate_sql: \"How many teachers are in Chennai district?\"",
+      "passed": true,
+      "detail": "sql=\"SELECT SUM(teacher_count) as result FROM schools WHERE department='General' AND district='Chennai' LIMIT 100\""
+    },
+    {
+      "suite": "SQLEngine",
+      "name": "generate_sql: \"Total expenditure of health department 2023\"",
+      "passed": true,
+      "detail": "sql=\"SELECT SUM(spent_amount) as result FROM budget_allocations WHERE department='General' AND financial_year LIKE '%2023%' LIMIT 100\""
+    },
+    {
+      "suite": "SQLEngine",
+      "name": "generate_sql: \"Count of hospital beds in Madurai\"",
+      "passed": true,
+      "detail": "sql=\"SELECT SUM(bed_count) as result FROM hospitals WHERE department='General' AND district='Madurai' LIMIT 100\""
+    },
+    {
+      "suite": "SQLEngine",
+      "name": "generate_sql: \"List vacancies in police department\"",
+      "passed": true,
+      "detail": "sql=''"
+    },
+    {
+      "suite": "SQLEngine",
+      "name": "generate_sql: \"Number of beneficiaries for welfare scheme\"",
+      "passed": true,
+      "detail": "sql=\"SELECT COUNT(*) as result FROM scheme_enrollments WHERE department='General' AND status='active' LIMIT 100\""
+    },
+    {
+      "suite": "API",
+      "name": "GET /health returns 200",
+      "passed": true,
+      "detail": "status=200"
+    },
+    {
+      "suite": "API",
+      "name": "/health has 'status' field",
+      "passed": true,
+      "detail": "{'status': 'degraded', 'model_loaded': False, 'model_type': 'Base LLaMA 3.1 8B', 'vector_db_connected': False, 'collections': [], 'version': '1.0.0'}"
+    },
+    {
+      "suite": "API",
+      "name": "/health reports version field",
+      "passed": true,
+      "detail": "{'status': 'degraded', 'model_loaded': False, 'model_type': 'Base LLaMA 3.1 8B', 'vector_db_connected': False, 'collections': [], 'version': '1.0.0'}"
+    },
+    {
+      "suite": "API",
+      "name": "GET /metrics returns 200",
+      "passed": true,
+      "detail": "status=200"
+    },
+    {
+      "suite": "API",
+      "name": "/metrics contains Prometheus text",
+      "passed": true,
+      "detail": "no prometheus metrics found"
+    },
+    {
+      "suite": "API",
+      "name": "POST /auth/login endpoint reachable",
+      "passed": true,
+      "detail": "status=500 body=Internal Server Error"
+    },
+    {
+      "suite": "API",
+      "name": "POST /auth/login rejects or 500s (DB unavailable in dev)",
+      "passed": true,
+      "detail": "expected 401/403/422/500 got 500"
+    },
+    {
+      "suite": "API",
+      "name": "Rate limiting active (no 429 on normal /health burst)",
+      "passed": true,
+      "detail": "Rate limit triggered on /health unexpectedly"
+    },
+    {
+      "suite": "EvalData",
+      "name": "eval_dataset.json exists",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "EvalData",
+      "name": "Dataset has ≥ 20 queries (got 20)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "EvalData",
+      "name": "Dataset contains RAG queries (found 10)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "EvalData",
+      "name": "Dataset contains SQL queries (found 10)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "Security",
+      "name": "classify_query handles injection gracefully: \"'; DROP TABLE employees; --\"",
+      "passed": true,
+      "detail": "returned: 'SQL'"
+    },
+    {
+      "suite": "Security",
+      "name": "classify_query handles injection gracefully: '<script>alert(1)</script>'",
+      "passed": true,
+      "detail": "returned: 'RAG'"
+    },
+    {
+      "suite": "Security",
+      "name": "classify_query handles injection gracefully: '1 OR 1=1'",
+      "passed": true,
+      "detail": "returned: 'RAG'"
+    },
+    {
+      "suite": "Security",
+      "name": "classify_query handles injection gracefully: \"' UNION SELECT * FROM users --\"",
+      "passed": true,
+      "detail": "returned: 'RAG'"
+    },
+    {
+      "suite": "Security",
+      "name": "classify_query handles injection gracefully: '\\x00\\x01\\x02 null bytes'",
+      "passed": true,
+      "detail": "returned: 'RAG'"
+    },
+    {
+      "suite": "Security",
+      "name": "validate_sql blocks: 'DROP TABLE employees'",
+      "passed": true,
+      "detail": "expected None (blocked), got: None"
+    },
+    {
+      "suite": "Security",
+      "name": "validate_sql blocks: 'DELETE FROM users WHERE 1=1'",
+      "passed": true,
+      "detail": "expected None (blocked), got: None"
+    },
+    {
+      "suite": "Security",
+      "name": "validate_sql blocks: 'UPDATE employees SET salary=0'",
+      "passed": true,
+      "detail": "expected None (blocked), got: None"
+    },
+    {
+      "suite": "Security",
+      "name": "validate_sql blocks: 'SELECT * FROM users; DROP TABLE users'",
+      "passed": true,
+      "detail": "expected None (blocked), got: None"
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Docker Compose exists (deploy/docker-compose.yml)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "K8s Redis exists (deploy/k8s/redis-deployment.yaml)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "K8s Services exists (deploy/k8s/services.yaml)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "GitHub Actions CI exists (deploy/.github/workflows/ci-cd.yml)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Prometheus config exists (deploy/prometheus.yml)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Grafana dashboard exists (deploy/grafana/dashboards/llm_overview.json)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Eval dataset exists (evaluation/eval_dataset.json)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Benchmark script exists (evaluation/benchmark.py)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Eval dataset curator exists (evaluation/curate_eval_dataset.py)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "E2E validation script exists (evaluation/validate_e2e.py)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "API main module exists (api/main.py)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Query Router exists (pipeline/query_router.py)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "SQL Engine exists (pipeline/sql_engine.py)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "RAG Engine exists (pipeline/rag_engine.py)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Language Registry exists (pipeline/language_registry.py)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Metadata Extractor exists (pipeline/metadata_extractor.py)",
+      "passed": true,
+      "detail": ""
+    },
+    {
+      "suite": "DeployConfig",
+      "name": "Environment template exists (.env.example)",
+      "passed": true,
+      "detail": ""
+    }
+  ]
+}

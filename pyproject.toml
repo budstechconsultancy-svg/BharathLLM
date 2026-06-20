@@ -1,0 +1,52 @@
+[tool.poetry]
+name = "bharatllm"
+version = "1.0.0"
+description = "BharatLLM Government Multi-Department Document Intelligence System"
+authors = ["Antigravity"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "0.111.0"
+uvicorn = { version = "0.29.0", extras = ["standard"] }
+pydantic = "2.7.1"
+python-dotenv = "1.0.1"
+pymupdf = "1.24.3"
+pytesseract = "0.3.13"
+Pillow = "10.3.0"
+langdetect = "1.0.9"
+transformers = "4.41.2"
+peft = "0.11.1"
+trl = "0.8.6"
+torch = "2.3.0"
+bitsandbytes = "0.43.1"
+accelerate = "0.30.1"
+sentence-transformers = "3.0.0"
+qdrant-client = "1.9.1"
+sqlalchemy = "2.0.30"
+psycopg2-binary = "2.9.9"
+celery = { version = "5.4.0", extras = ["redis"] }
+redis = "5.0.4"
+tqdm = "4.66.4"
+python-multipart = "0.0.9"
+PyJWT = "2.8.0"
+passlib = { version = "1.7.4", extras = ["bcrypt"] }
+datasets = "2.19.2"
+nltk = "3.8.1"
+httpx = "0.27.0"
+indic-nlp-library = "0.92"
+polyglot = "16.7.4"
+icu4c = "73.2"
+ftlangdetect = "0.3.0"
+alembic = "1.13.1"
+prometheus-fastapi-instrumentator = "6.1.0"
+trafilatura = "1.10.0"
+brave-search = "0.1.0"
+tavily-python = "0.3.3"
+[tool.poetry.dev-dependencies]
+pytest = "8.2.0"
+black = "24.4.2"
+ruff = "0.4.4"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

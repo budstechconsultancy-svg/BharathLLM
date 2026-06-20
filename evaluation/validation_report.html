@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>India Government LLM — End-to-End Validation Report v3.1</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Inter', sans-serif; background: #0f172a; color: #e2e8f0; padding: 40px 30px; }
+  h1 { font-size: 28px; color: #38bdf8; margin-bottom: 4px; }
+  .subtitle { color: #64748b; font-size: 13px; margin-bottom: 36px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 16px; margin-bottom: 36px; }
+  .kpi { background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 20px; text-align: center; }
+  .kpi h4 { font-size: 11px; text-transform: uppercase; color: #64748b; letter-spacing: .8px; margin-bottom: 8px; }
+  .kpi .val { font-size: 36px; font-weight: 700; }
+  h2 { font-size: 18px; color: #94a3b8; margin: 28px 0 12px; }
+  table { width: 100%; border-collapse: collapse; background: #1e293b; border-radius: 10px; overflow: hidden; margin-bottom: 30px; }
+  th { background: #0f172a; color: #38bdf8; font-size: 12px; text-transform: uppercase; padding: 12px 14px; text-align: left; }
+  td { padding: 10px 14px; border-bottom: 1px solid #334155; font-size: 13px; }
+  tr:last-child td { border-bottom: none; }
+  .badge { background: #1d4ed8; color: #bfdbfe; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+  .status-banner { border-radius: 12px; padding: 18px 24px; margin-bottom: 30px; font-size: 22px; font-weight: 700;
+                    border: 2px solid #34d399; color: #34d399; text-align: center; }
+</style>
+</head>
+<body>
+  <h1>🇮🇳 India Government LLM — End-to-End Validation Report</h1>
+  <div class="subtitle">Version 3.1 · Generated: 2026-06-20T13:03:26.695242</div>
+
+  <div class="status-banner">Overall Status: PASS ✔ &nbsp;|&nbsp; 85/85 tests passed (100.0%)</div>
+
+  <div class="kpi-grid">
+    <div class="kpi"><h4>Total Tests</h4><div class="val" style="color:#38bdf8">85</div></div>
+    <div class="kpi"><h4>Passed</h4><div class="val" style="color:#34d399">85</div></div>
+    <div class="kpi"><h4>Failed</h4><div class="val" style="color:#f87171">0</div></div>
+    <div class="kpi"><h4>Pass Rate</h4><div class="val" style="color:#34d399">100.0%</div></div>
+    <div class="kpi"><h4>Query Classification</h4><div class="val" style="color:#a78bfa">100.0%</div></div>
+  </div>
+
+  <h2>Suite Summary</h2>
+  <table>
+    <thead><tr><th>Suite</th><th>Passed</th><th>Failed</th><th>Pass %</th></tr></thead>
+    <tbody>
+        <tr>
+            <td>Classification</td>
+            <td>10</td>
+            <td>0</td>
+            <td style="color:#34d399;font-weight:bold">100.0%</td>
+        </tr>
+        <tr>
+            <td>LanguageRegistry</td>
+            <td>23</td>
+            <td>0</td>
+            <td style="color:#34d399;font-weight:bold">100.0%</td>
+        </tr>
+        <tr>
+            <td>NumeralNorm</td>
+            <td>4</td>
+            <td>0</td>
+            <td style="color:#34d399;font-weight:bold">100.0%</td>
+        </tr>
+        <tr>
+            <td>Metadata</td>
+            <td>5</td>
+            <td>0</td>
+            <td style="color:#34d399;font-weight:bold">100.0%</td>
+        </tr>
+        <tr>
+            <td>SQLEngine</td>
+            <td>5</td>
+            <td>0</td>
+            <td style="color:#34d399;font-weight:bold">100.0%</td>
+        </tr>
+        <tr>
+            <td>API</td>
+            <td>8</td>
+            <td>0</td>
+            <td style="color:#34d399;font-weight:bold">100.0%</td>
+        </tr>
+        <tr>
+            <td>EvalData</td>
+            <td>4</td>
+            <td>0</td>
+            <td style="color:#34d399;font-weight:bold">100.0%</td>
+        </tr>
+        <tr>
+            <td>Security</td>
+            <td>9</td>
+            <td>0</td>
+            <td style="color:#34d399;font-weight:bold">100.0%</td>
+        </tr>
+        <tr>
+            <td>DeployConfig</td>
+            <td>17</td>
+            <td>0</td>
+            <td style="color:#34d399;font-weight:bold">100.0%</td>
+        </tr></tbody>
+  </table>
+
+  <h2>Detailed Results</h2>
+  <table>
+    <thead><tr><th style="width:40px">✔/✗</th><th>Suite</th><th>Test Name</th><th>Detail</th></tr></thead>
+    <tbody>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"How many teachers are there in Chennai schools?"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=SQL, got=SQL</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"What is the eligibility for Amma Vodi scheme?"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=RAG, got=RAG</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"Explain the procedure for patta transfer"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=MIXED, got=MIXED</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"Total expenditure on health department 2023"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=SQL, got=SQL</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"How many beneficiaries and also explain the eligibility…"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=MIXED, got=MIXED</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"Government order on new teacher recruitment"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=MIXED, got=MIXED</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"Count of hospital beds in Madurai district"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=SQL, got=SQL</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"Show all budget allocations along with eligibility rule…"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=MIXED, got=MIXED</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"What does GO Ms No 45 say about land acquisition?"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=RAG, got=RAG</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Classification</span></td>
+            <td>"List vacancies in Tamil Nadu Police 2024"</td>
+            <td style="font-size:12px;color:#94a3b8">expected=SQL, got=SQL</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'ta' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'hi' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'te' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'kn' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'ml' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'or' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'bn' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'gu' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'pa' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'mr' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'as' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'ur' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'sa' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'kok' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'mai' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'mni' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'sat' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'ne' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'sd' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'ks' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'doi' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Language code 'bho' registered</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">LanguageRegistry</span></td>
+            <td>Total languages >= 20 (got 23)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">NumeralNorm</span></td>
+            <td>normalise_numerals('௧௦') == '10'</td>
+            <td style="font-size:12px;color:#94a3b8">got '10'</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">NumeralNorm</span></td>
+            <td>normalise_numerals('௨௫') == '25'</td>
+            <td style="font-size:12px;color:#94a3b8">got '25'</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">NumeralNorm</span></td>
+            <td>normalise_numerals('௩') == '3'</td>
+            <td style="font-size:12px;color:#94a3b8">got '3'</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">NumeralNorm</span></td>
+            <td>normalise_numerals('normal text 42') == 'normal text 42'</td>
+            <td style="font-size:12px;color:#94a3b8">got 'normal text 42'</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Metadata</span></td>
+            <td>extract_doc_type identifies GO</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Metadata</span></td>
+            <td>extract_ref_number finds G.O. number</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Metadata</span></td>
+            <td>parse_date finds 2023-03-15</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Metadata</span></td>
+            <td>extract_doc_type identifies CIRCULAR</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Metadata</span></td>
+            <td>parse_date handles Saka Era without crash</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">SQLEngine</span></td>
+            <td>generate_sql: "How many teachers are in Chennai district?"</td>
+            <td style="font-size:12px;color:#94a3b8">sql="SELECT SUM(teacher_count) as result FROM schools WHERE department='General' AND district='Chennai' LIMIT 100"</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">SQLEngine</span></td>
+            <td>generate_sql: "Total expenditure of health department 2023"</td>
+            <td style="font-size:12px;color:#94a3b8">sql="SELECT SUM(spent_amount) as result FROM budget_allocations WHERE department='General' AND financial_year LIKE '%202</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">SQLEngine</span></td>
+            <td>generate_sql: "Count of hospital beds in Madurai"</td>
+            <td style="font-size:12px;color:#94a3b8">sql="SELECT SUM(bed_count) as result FROM hospitals WHERE department='General' AND district='Madurai' LIMIT 100"</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">SQLEngine</span></td>
+            <td>generate_sql: "List vacancies in police department"</td>
+            <td style="font-size:12px;color:#94a3b8">sql=''</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">SQLEngine</span></td>
+            <td>generate_sql: "Number of beneficiaries for welfare scheme"</td>
+            <td style="font-size:12px;color:#94a3b8">sql="SELECT COUNT(*) as result FROM scheme_enrollments WHERE department='General' AND status='active' LIMIT 100"</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">API</span></td>
+            <td>GET /health returns 200</td>
+            <td style="font-size:12px;color:#94a3b8">status=200</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">API</span></td>
+            <td>/health has 'status' field</td>
+            <td style="font-size:12px;color:#94a3b8">{'status': 'degraded', 'model_loaded': False, 'model_type': 'Base LLaMA 3.1 8B', 'vector_db_connected': False, 'collecti</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">API</span></td>
+            <td>/health reports version field</td>
+            <td style="font-size:12px;color:#94a3b8">{'status': 'degraded', 'model_loaded': False, 'model_type': 'Base LLaMA 3.1 8B', 'vector_db_connected': False, 'collecti</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">API</span></td>
+            <td>GET /metrics returns 200</td>
+            <td style="font-size:12px;color:#94a3b8">status=200</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">API</span></td>
+            <td>/metrics contains Prometheus text</td>
+            <td style="font-size:12px;color:#94a3b8">no prometheus metrics found</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">API</span></td>
+            <td>POST /auth/login endpoint reachable</td>
+            <td style="font-size:12px;color:#94a3b8">status=500 body=Internal Server Error</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">API</span></td>
+            <td>POST /auth/login rejects or 500s (DB unavailable in dev)</td>
+            <td style="font-size:12px;color:#94a3b8">expected 401/403/422/500 got 500</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">API</span></td>
+            <td>Rate limiting active (no 429 on normal /health burst)</td>
+            <td style="font-size:12px;color:#94a3b8">Rate limit triggered on /health unexpectedly</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">EvalData</span></td>
+            <td>eval_dataset.json exists</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">EvalData</span></td>
+            <td>Dataset has ≥ 20 queries (got 20)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">EvalData</span></td>
+            <td>Dataset contains RAG queries (found 10)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">EvalData</span></td>
+            <td>Dataset contains SQL queries (found 10)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Security</span></td>
+            <td>classify_query handles injection gracefully: "'; DROP TABLE employees; --"</td>
+            <td style="font-size:12px;color:#94a3b8">returned: 'SQL'</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Security</span></td>
+            <td>classify_query handles injection gracefully: '<script>alert(1)</script>'</td>
+            <td style="font-size:12px;color:#94a3b8">returned: 'RAG'</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Security</span></td>
+            <td>classify_query handles injection gracefully: '1 OR 1=1'</td>
+            <td style="font-size:12px;color:#94a3b8">returned: 'RAG'</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Security</span></td>
+            <td>classify_query handles injection gracefully: "' UNION SELECT * FROM users --"</td>
+            <td style="font-size:12px;color:#94a3b8">returned: 'RAG'</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Security</span></td>
+            <td>classify_query handles injection gracefully: '\x00\x01\x02 null bytes'</td>
+            <td style="font-size:12px;color:#94a3b8">returned: 'RAG'</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Security</span></td>
+            <td>validate_sql blocks: 'DROP TABLE employees'</td>
+            <td style="font-size:12px;color:#94a3b8">expected None (blocked), got: None</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Security</span></td>
+            <td>validate_sql blocks: 'DELETE FROM users WHERE 1=1'</td>
+            <td style="font-size:12px;color:#94a3b8">expected None (blocked), got: None</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Security</span></td>
+            <td>validate_sql blocks: 'UPDATE employees SET salary=0'</td>
+            <td style="font-size:12px;color:#94a3b8">expected None (blocked), got: None</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">Security</span></td>
+            <td>validate_sql blocks: 'SELECT * FROM users; DROP TABLE users'</td>
+            <td style="font-size:12px;color:#94a3b8">expected None (blocked), got: None</td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Docker Compose exists (deploy/docker-compose.yml)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>K8s Redis exists (deploy/k8s/redis-deployment.yaml)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>K8s Services exists (deploy/k8s/services.yaml)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>GitHub Actions CI exists (deploy/.github/workflows/ci-cd.yml)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Prometheus config exists (deploy/prometheus.yml)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Grafana dashboard exists (deploy/grafana/dashboards/llm_overview.json)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Eval dataset exists (evaluation/eval_dataset.json)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Benchmark script exists (evaluation/benchmark.py)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Eval dataset curator exists (evaluation/curate_eval_dataset.py)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>E2E validation script exists (evaluation/validate_e2e.py)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>API main module exists (api/main.py)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Query Router exists (pipeline/query_router.py)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>SQL Engine exists (pipeline/sql_engine.py)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>RAG Engine exists (pipeline/rag_engine.py)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Language Registry exists (pipeline/language_registry.py)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Metadata Extractor exists (pipeline/metadata_extractor.py)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr>
+        <tr>
+            <td style="color:#34d399;font-weight:bold;text-align:center">✔</td>
+            <td><span class="badge">DeployConfig</span></td>
+            <td>Environment template exists (.env.example)</td>
+            <td style="font-size:12px;color:#94a3b8"></td>
+        </tr></tbody>
+  </table>
+</body>
+</html>
