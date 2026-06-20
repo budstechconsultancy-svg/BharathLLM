@@ -1,0 +1,29 @@
+{
+  "entity_type": {
+    "pvt_ltd": {
+      "gst_r1_monthly": {
+        "description": "GSTR-1 monthly return",
+        "due_day": 11,
+        "due_month_offset": 1,
+        "applicable_to": "turnover > 5Cr or opted",
+        "penalty": "\u20b950/day (\u20b920 for nil return)",
+        "section": "CGST Act Section 37"
+      },
+      "tds_deposit": {
+        "description": "Monthly TDS deposit",
+        "due_day": 7,
+        "due_month_offset": 1,
+        "penalty": "1.5% per month interest under Section 201(1A)"
+      },
+      "advance_tax_q1": {
+        "description": "Advance tax Q1 installment (15%)",
+        "due_date": "June 15",
+        "fixed_annual": true
+      }
+    },
+    "partnership": {},
+    "individual": {},
+    "trust": {},
+    "llp": {}
+  }
+}

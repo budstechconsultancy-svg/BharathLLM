@@ -1,0 +1,18 @@
+{
+  "legal_collections": {
+    "Central Acts": "legal_central_acts",
+    "SC Judgements": "legal_sc_judgements",
+    "HC Judgements TN": "legal_hc_judgements_tn",
+    "HC Judgements MH": "legal_hc_judgements_mh",
+    "Constitution": "legal_constitution"
+  },
+  "finance_collections": {
+    "Income Tax": "finance_income_tax",
+    "GST": "finance_gst",
+    "RBI": "finance_rbi",
+    "SEBI": "finance_sebi",
+    "Companies Act": "finance_companies_act",
+    "FEMA": "finance_fema",
+    "ITAT": "finance_itat"
+  }
+}

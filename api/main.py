@@ -25,9 +25,13 @@ from auth.dependencies import get_current_user, get_api_key_context, require_rol
 from auth.rate_limiter import check_rate_limit
 from workers.tasks import ingest_pdf_task
 from workers.job_store import get_job, list_jobs
+from agents.supervisor import SupervisorAgent
+from api.multimodal_routes import router as multimodal_router
+from api.whatsapp_webhook import router as whatsapp_router
 
 # Global state trackers
 router_instance: Optional[QueryRouter] = None
+supervisor_instance: Optional[SupervisorAgent] = None
 engine = None
 SessionLocal = None
 
@@ -52,6 +56,14 @@ class QueryRequest(BaseModel):
     date_to: Optional[str] = None
     top_k: Optional[int] = 5
     override_department: Optional[str] = None
+
+class AgentTaskRequest(BaseModel):
+    task: str
+    priority: Optional[str] = "normal"
+
+class AgentApproveRequest(BaseModel):
+    approved: bool
+    edited_parameters: Optional[dict] = None
 
 class LoginRequest(BaseModel):
     employee_id_or_email: str
@@ -91,9 +103,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         logger.error(f"PostgreSQL Connection failed on startup: {e}")
         
-    # 2. Instantiate QueryRouter
+    # 2. Initialize ML Engines
     try:
-        router_instance = QueryRouter()
+        model_path = os.getenv("MODEL_NAME")
+        router_instance = QueryRouter(model_path=model_path)
+        supervisor_instance = SupervisorAgent()
+        MODEL_LOADED.set(1)
         logger.info("QueryRouter (LLM + Embedding + Qdrant) successfully loaded in server context.")
         MODEL_LOADED.set(1)
     except Exception as e:
@@ -124,10 +139,14 @@ async def lifespan(app: FastAPI):
         logger.info("VRAM memory released.")
 
 app = FastAPI(
-    title="BharatLLM Document Intelligence System API Gateway",
+    title="BharatLLM Unified API",
     version="1.0.0",
     lifespan=lifespan
 )
+
+# Mount Routers
+app.include_router(multimodal_router)
+app.include_router(whatsapp_router)
 
 # Enable Cors checks
 app.add_middleware(
@@ -470,3 +489,53 @@ def generate_scoped_api_key(
     except Exception as e:
         logger.error(f"Failed to generate API Key: {e}")
         raise HTTPException(status_code=500, detail="Failed to generate scoped key.")
+
+
+# ----------------- AGENT ENDPOINTS -----------------
+
+@app.post("/agent/task")
+async def agent_task(req: AgentTaskRequest, context: dict = Depends(get_request_context)):
+    try:
+        user_id = context.get("user_id", "system")
+        dept = context.get("department", "General")
+        result = await supervisor_instance.run_task(req.task, user_id, dept, "TN")
+        
+        if result.status == "complete":
+            return {
+                "task_id": result.task_id or "new",
+                "status": "complete",
+                "answer": result.answer,
+                "artifacts": result.artifacts,
+                "steps_taken": result.steps_taken,
+                "agents_used": result.agents_used
+            }
+        elif result.status == "awaiting_approval":
+            return {
+                "task_id": result.task_id,
+                "status": "awaiting_approval",
+                "pending_action": result.pending_action,
+                "completed_so_far": result.completed_so_far,
+                "message": "Please review and approve"
+            }
+    except Exception as e:
+        logger.error(f"Agent task failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/agent/task/{task_id}")
+async def get_agent_task(task_id: str, context: dict = Depends(get_request_context)):
+    return {"task_id": task_id, "status": "unknown"}
+
+@app.post("/agent/task/{task_id}/approve")
+async def approve_agent_task(task_id: str, req: AgentApproveRequest, context: dict = Depends(get_request_context)):
+    try:
+        result = await supervisor_instance.resume_after_approval(task_id, req.approved, req.edited_parameters)
+        return {
+            "task_id": task_id,
+            "status": result.status,
+            "answer": result.answer,
+            "artifacts": result.artifacts,
+            "steps_taken": result.steps_taken,
+            "agents_used": result.agents_used
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

@@ -5,6 +5,9 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 from .rag_engine import RAGEngine
 from .sql_engine import SQLEngine
+from .web_search_engine import WebSearchEngine
+from .legal_engine import LegalEngine
+from .finance_engine import FinanceEngine
 
 logger = logging.getLogger("QueryRouter")
 
@@ -29,120 +32,208 @@ class QueryRouter:
     def __init__(self, model_path=None):
         logger.info("Initializing QueryRouter Engines...")
         self.rag_engine = RAGEngine(model_path=model_path)
-        # Pass the RAGEngine's loaded model object directly to avoid duplicate model instantiation in VRAM
         self.sql_engine = SQLEngine(llm_engine=self.rag_engine)
+        self.web_engine = WebSearchEngine()
+        self.legal_engine = LegalEngine()
+        self.finance_engine = FinanceEngine()
         logger.info("Engines fully attached.")
 
     def classify_query(self, question: str) -> str:
         q_lower = question.lower()
-        
         has_sql = any(re.search(sig, q_lower) for sig in SQL_SIGNALS)
         has_rag = any(re.search(sig, q_lower) for sig in RAG_SIGNALS)
         has_mixed = any(re.search(sig, q_lower) for sig in MIXED_SIGNALS)
         
-        # SQL matches pattern \d{4} (usually represents years)
+        LEGAL_SIGNALS = [
+          "section", "act", "judgement", "court", "case", "bail", "fir",
+          "petition", "plaint", "notice", "limitation", "advocate", "lawyer",
+          "ipc", "bns", "crpc", "bnss", "supreme court", "high court",
+          "contract", "divorce", "succession", "will", "deed", "agreement",
+          "draft legal", "legal notice", "writ", "habeas corpus"
+        ]
+        FINANCE_SIGNALS = [
+          "gst", "income tax", "tds", "cbdt", "gstn", "circular", "rbi",
+          "sebi", "return", "filing", "compliance", "advance tax", "deduction",
+          "80c", "gstr", "itr", "demand", "assessment", "appeal",
+          "itat", "ca", "audit", "balance sheet", "p&l", "fema", "transfer pricing",
+          "customs", "ibc", "insolvency", "nbfc", "irda"
+        ]
+        
+        has_legal = any(s in q_lower for s in LEGAL_SIGNALS)
+        has_finance = any(s in q_lower for s in FINANCE_SIGNALS)
         has_year = bool(re.search(r"\b\d{4}\b", q_lower))
         if has_year and has_sql:
             has_sql = True
             
-        logger.info(f"Query classification signals matched: SQL={has_sql}, RAG={has_rag}, MIXED={has_mixed}")
+        logger.info(f"Query classification signals matched: SQL={has_sql}, RAG={has_rag}, LEGAL={has_legal}, FINANCE={has_finance}")
         
-        if (has_sql and has_rag) or has_mixed:
+        if has_legal and not has_finance:
+            return "LEGAL"
+        elif has_finance and not has_legal:
+            return "FINANCE"
+        elif has_legal and has_finance:
+            return "LEGAL_FINANCE"
+        elif (has_sql and has_rag) or has_mixed:
             return "MIXED"
         elif has_sql:
             return "SQL"
         elif has_rag:
             return "RAG"
-            
-        return "RAG" # Safe default fallback
+        return "RAG"
 
     def route_and_query(self, question: str, department: str, filters: dict = None) -> dict:
-        classification = self.classify_query(question)
-        logger.info(f"Routing query as classification: {classification}")
+        q_type = self.classify_query(question)
         
-        rag_result = {}
-        sql_result = {}
-        
-        if classification == "RAG":
-            rag_result = self.rag_engine.query(question, department, filters=filters)
-            answer = rag_result["answer"]
-            
-        elif classification == "SQL":
+        if q_type == "LEGAL":
+            result = self.legal_engine.query(question)
+            result["vertical"] = "LEGAL"
+            return result
+        elif q_type == "FINANCE":
+            result = self.finance_engine.query(question)
+            result["vertical"] = "FINANCE"
+            return result
+        elif q_type == "LEGAL_FINANCE":
+            # Mock fusion for now
+            legal_res = self.legal_engine.query(question)
+            fin_res = self.finance_engine.query(question)
+            fin_res["answer"] = legal_res["answer"] + "\n\n" + fin_res["answer"]
+            fin_res["vertical"] = "LEGAL_FINANCE"
+            return fin_res
+
+        # Step 1: RAG retrieval (always try first)
+        rag_result = self.rag_engine.query(question, department, filters=filters)
+        rag_confidence = rag_result.get("confidence", 0.0)
+        rag_chunks = rag_result.get("sources", [])
+
+        # Step 2: SQL classification and query
+        query_type_rag = self.classify_query(question)
+
+        # Step 3: Web search fallback
+        web_result = self.web_engine.query(question, department, rag_confidence)
+        web_source_type = web_result.get("source_type", "NOT_NEEDED")
+        web_chunks = web_result.get("chunks", [])
+
+        # Step 4: SQL if needed
+        sql_result = None
+        if query_type_rag in ("SQL", "MIXED"):
             sql_result = self.sql_engine.query(question, department)
-            answer = sql_result["formatted_result"]
-            
-        elif classification == "MIXED":
-            # Run both SQL query and RAG search in concurrent threads
-            with ThreadPoolExecutor(max_workers=2) as executor:
-                rag_thread = executor.submit(self.rag_engine.query, question, department, filters)
-                sql_thread = executor.submit(self.sql_engine.query, question, department)
-                
-                rag_result = rag_thread.result()
-                sql_result = sql_thread.result()
-                
-            # Perform Result Fusion
-            answer = self.fuse_results(question, rag_result, sql_result, department)
-            
-        # Compile response metadata outputs
-        sources = rag_result.get("sources", [])
-        sql_generated = sql_result.get("sql_generated", None)
-        db_row_count = sql_result.get("row_count", None)
-        
-        # Calculate overall confidence
-        rag_conf = rag_result.get("confidence", 0.0)
-        sql_err = sql_result.get("error", None)
-        
-        if classification == "RAG":
-            confidence = rag_conf
-        elif classification == "SQL":
-            confidence = 1.0 if not sql_err else 0.0
-        else: # MIXED
-            confidence = round((rag_conf + (1.0 if not sql_err else 0.0)) / 2, 4)
-            
+
+        # Step 5: Determine final query type
+        if rag_confidence >= 0.70 and not sql_result:
+            final_type = "RAG"
+        elif rag_confidence >= 0.70 and sql_result:
+            final_type = "MIXED_RAG_SQL"
+        elif web_source_type == "GOV":
+            final_type = "RAG_GOV" if rag_chunks else "GOV"
+        elif web_source_type == "WEB":
+            final_type = "WEB"
+        elif web_source_type == "NOT_FOUND":
+            final_type = "NOT_FOUND"
+        else:
+            final_type = "RAG"
+
+        # Step 6: Build fused context
+        context_parts = []
+        if rag_chunks:
+            context_parts.append(
+                "PRIVATE DOCUMENT CONTEXT (from uploaded department documents):\n"
+                + "\n---\n".join([
+                    f"[Source: {s.get('filename')} | {s.get('doc_type')} | {s.get('department')} | {s.get('date')}]\n{s.get('text','')}"
+                    for s in rag_chunks[:5]
+                ])
+            )
+
+        if sql_result and sql_result.get("formatted_result"):
+            context_parts.append(
+                "DATABASE CONTEXT (from live department database):\n"
+                + sql_result["formatted_result"]
+            )
+
+        if web_chunks:
+            source_label = "GOVERNMENT WEBSITE CONTEXT" if web_source_type == "GOV" else "WEB SEARCH CONTEXT"
+            context_parts.append(
+                f"{source_label}:\n"
+                + "\n---\n".join([
+                    f"[Source: {c.get('title')} | {c.get('url')} | {c.get('source_type')}]\n{c.get('text', '')}"
+                    for c in web_chunks[:5]
+                ])
+            )
+
+        fused_context = "\n\n".join(context_parts)
+
+        # Step 7: Updated system prompt for hybrid answers
+        system_prompt_addition = ""
+        if web_source_type in ("GOV", "WEB"):
+            system_prompt_addition = """
+            ADDITIONAL RULES FOR WEB SEARCH RESULTS:
+            - Clearly distinguish between answers from uploaded documents vs web sources.
+            - For web sources, always cite the URL and website name.
+            - If the web source is a government website (*.gov.in, *.nic.in), treat it as authoritative. If it is an open web result, treat it as supplementary.
+            - If information from private documents and web sources conflicts, trust the private documents and note the discrepancy.
+            - Always tell the user which source type answered their question: '(Source: Department document)' or '(Source: govt website)' or '(Source: web search)'
+            """
+
+        # Step 8: Generate answer
+        if not context_parts:
+            answer = ("I could not find a reliable answer in your department's "
+                      "documents, government websites, or web search. Please "
+                      "contact your department directly or visit "
+                      "https://india.gov.in for official information.")
+            confidence = 0.0
+        else:
+            answer = self.generate_answer(question, fused_context, system_prompt_addition)
+            confidence = max(
+                rag_confidence,
+                0.60 if web_source_type == "GOV" else
+                0.40 if web_source_type == "WEB" else 0.0
+            )
+
+        # Step 9: Build source list (combined RAG + web)
+        all_sources = []
+        for s in (rag_chunks or []):
+            all_sources.append({
+                "type": "RAG",
+                "filename": s.get("filename"),
+                "department": s.get("department"),
+                "date": s.get("date"),
+                "relevance_score": s.get("relevance_score", 0)
+            })
+        for c in (web_chunks or []):
+            all_sources.append({
+                "type": c.get("source_type", "WEB"),
+                "url": c.get("url"),
+                "title": c.get("title"),
+                "domain": c.get("domain")
+            })
+
         return {
             "answer": answer,
-            "query_type": classification,
-            "sources": sources,
-            "sql_generated": sql_generated,
-            "db_row_count": db_row_count,
-            "confidence": confidence,
-            "chunks_used": rag_result.get("chunks_used", 0),
+            "query_type": final_type,
+            "sources": all_sources,
+            "sql_generated": sql_result.get("sql_generated") if sql_result else None,
+            "db_row_count": sql_result.get("row_count") if sql_result else None,
+            "confidence": round(confidence, 3),
+            "chunks_used": len(rag_chunks) + len(web_chunks),
+            "web_source_type": web_source_type,
+            "web_query_used": web_result.get("query_used", ""),
             "query_language": rag_result.get("query_language", "en")
         }
 
-    def fuse_results(self, question: str, rag_res: dict, sql_res: dict, department: str) -> str:
-        # Check fallback if both are empty
-        if not rag_res.get("sources") and not sql_res.get("rows"):
-            return "This information is not available in the provided BharatLLM Government documents or databases."
-            
-        # Re-construct contexts
-        doc_parts = []
-        for src in rag_res.get("sources", []):
-            # Query Qdrant directly or pass chunks through to get text.
-            # To optimize, we can retrieve chunk text from RAG engine retrieved state.
-            # RAGEngine query returns sources list. To reconstruct, we pass raw context.
-            pass
-            
-        # However, to be robust, we instruct the LLM using the generated answers/outputs from both sub-engines
-        rag_answer = rag_res.get("answer", "")
-        db_table = sql_res.get("formatted_result", "")
-        
+    def generate_answer(self, question: str, fused_context: str, extra_system: str = "") -> str:
         fusion_prompt = (
-            f"You have access to both government document search summaries and database query records for the {department} Department.\n\n"
-            f"DOCUMENT RETRIEVAL SUMMARY:\n{rag_answer}\n\n"
-            f"DATABASE RETRIEVAL TABLE:\n{db_table}\n\n"
+            f"You have access to context from documents, databases, and/or web searches.\n\n"
+            f"CONTEXT:\n{fused_context}\n\n"
             f"QUESTION: {question}\n\n"
             "Rules:\n"
-            "1. Synthesise both document search and database records into a single coherent response.\n"
+            "1. Synthesise the provided context into a single coherent response.\n"
             "2. Cite document source names and dates where relevant.\n"
-            "3. If one of the sources contains no information, rely on the other.\n"
-            "4. Be concise, factual, and do not make up external information."
+            "3. Be concise, factual, and do not make up external information."
         )
         
         system_prompt = (
             "You are a BharatLLM document assistant. "
-            "Integrate document text summaries and database tables to answer user questions."
-        )
+            "Integrate document text summaries, database tables, and web search context to answer user questions.\n"
+        ) + extra_system
         
         messages = [
             {"role": "system", "content": system_prompt},
@@ -167,7 +258,10 @@ class QueryRouter:
             return response.strip()
         except Exception as e:
             logger.error(f"Inference Fusion generation failed: {e}")
-            return f"Document summary: {rag_answer}\n\nDatabase results: {db_table}"
+            # Fallback to RAG engine generate if the tokenizer generation failed (it's what prompt 4.4 implied could be used)
+            if hasattr(self.rag_engine, 'generate'):
+                return self.rag_engine.generate(question, fused_context, extra_system=extra_system)
+            return "An error occurred while generating the response from context."
 
 def main():
     parser = argparse.ArgumentParser(description="TN Govt LLM Query Router CLI")
@@ -176,7 +270,6 @@ def main():
     args = parser.parse_args()
     
     print(f"Testing Classifier Router on: '{args.question}'...")
-    # Just run syntax check simulation since engine instantiation downloads metal models
     router_check = QueryRouter.__new__(QueryRouter)
     classification = router_check.classify_query(args.question)
     print(f"Resulting route: {classification}")

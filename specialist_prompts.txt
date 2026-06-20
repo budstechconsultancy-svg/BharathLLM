@@ -1,0 +1,980 @@
+================================================================================
+  ANTIGRAVITY PROMPT — BharatLLM LEGAL ENGINE + FINANCE ENGINE
+  Prompts: 4.6 (Legal) + 4.7 (Finance)
+  Insert after: Prompt 4.5 (Web Search Fallback) in India_Govt_LLM_v3.1_COMPLETE.txt
+  Files: /pipeline/legal_engine.py
+         /pipeline/finance_engine.py
+         /pipeline/assets/legal_corpus/
+         /pipeline/assets/finance_corpus/
+         Updates to query_router.py, collection_registry.json,
+         tool_registry.py, web_search_engine.py
+  Purpose: First-class Law and Finance vertical intelligence —
+           not a side feature but a complete domain-specific engine
+           with its own knowledge base, tools, and query handling
+================================================================================
+
+WHY LAW AND FINANCE ARE FIRST-CLASS VERTICALS:
+
+  LEGAL MARKET:
+  - 20,00,000+ advocates enrolled with Bar Councils across India
+  - 1,882 Central Acts + thousands of State Acts
+  - 50,000+ Supreme Court and High Court judgements
+  - IPC/CrPC/Evidence Act replaced by BNS/BNSS/BSA in 2023 —
+    every lawyer in India needs help mapping old precedents to new codes
+  - Closes in 30 days. Pays ₹3,000–75,000/month. No govt approval needed.
+
+  FINANCE MARKET:
+  - 3,00,000+ registered CA firms in India
+  - GST circulars change monthly. CBDT notifications change quarterly.
+  - RBI, SEBI, IRDA, FEMA regulations updated constantly.
+  - Missing one circular = client penalty = lost client.
+  - CA firms are the fastest-closing B2B customer in India.
+  - Pays ₹8,000–75,000/month. Decision made in one demo.
+
+  COMBINED MAX ARR: ₹294 Crore — entirely from private sector.
+
+================================================================================
+PROMPT 4.6 — BharatLLM LEGAL ENGINE
+================================================================================
+
+BUILD /pipeline/legal_engine.py and all supporting infrastructure.
+
+--------------------------------------------------------------------------------
+SECTION A — LEGAL KNOWLEDGE BASE (corpus ingestion)
+--------------------------------------------------------------------------------
+
+CREATE /pipeline/assets/legal_corpus/ directory with these sub-directories:
+  /central_acts/       — all 1,882 Central Acts as PDFs or text
+  /state_acts/         — State Acts organised by state code
+  /sc_judgements/      — Supreme Court judgements
+  /hc_judgements/      — High Court judgements (folder per HC)
+  /rules_regulations/  — Subordinate legislation, rules, notifications
+  /constitution/       — Constitution of India + all amendments
+  /bar_council_rules/  — Bar Council of India rules
+  /court_procedures/   — Court-specific procedural guides
+
+LEGAL CORPUS SOURCES (free, public domain):
+  Central Acts:     https://indiacode.nic.in  (full text, downloadable)
+  SC Judgements:    https://main.sci.gov.in/judgments  (PDF downloads)
+  HC Judgements:    Each HC has a public judgement portal
+  Constitution:     https://legislative.gov.in/constitution-of-india
+  Legal database:   https://indiankanoon.org (scraping — respect robots.txt)
+
+LEGAL QDRANT COLLECTIONS (one per domain, strict isolation):
+  legal_central_acts          — all Central Acts, section-wise chunks
+  legal_sc_judgements         — Supreme Court judgements
+  legal_hc_judgements_{state} — per-state High Court (e.g. legal_hc_judgements_tn)
+  legal_constitution          — Constitution articles + amendments
+  legal_client_docs           — client-uploaded case documents (per-firm isolation)
+
+LEGAL METADATA per chunk:
+  {
+    chunk_id, source_type: "act|judgement|constitution|rule|client_doc",
+    act_name, act_year, section_number, section_title,
+    case_name, citation, court, date, bench_strength,
+    legal_topics: [list], language: "en|hi|ta|...",
+    is_overruled: bool, overruled_by: citation or null,
+    bns_equivalent: str (for old IPC sections),  -- NEW CODE MAPPING
+    bnss_equivalent: str (for old CrPC sections)
+  }
+
+SECTION MAPPER — BNS/BNSS/BSA to old codes:
+  Create /pipeline/assets/legal_corpus/section_maps.json:
+  {
+    "ipc_to_bns": {
+      "302": "103",  "307": "109",  "420": "318",
+      "376": "64",   "498A": "85",  "304B": "80",
+      ... all 511 IPC sections mapped to BNS equivalents
+    },
+    "crpc_to_bnss": {
+      "41": "35",   "167": "187",  "437": "480",
+      "439": "483", "482": "528",
+      ... all CrPC sections mapped to BNSS
+    },
+    "evidence_to_bsa": {
+      "65B": "63",  "106": "106",  "113A": "118",
+      ... Indian Evidence Act to BSA
+    }
+  }
+  When a query mentions "Section 302 IPC", BharatLLM automatically
+  adds: "Note: Section 302 IPC is now Section 103 BNS 2023."
+
+--------------------------------------------------------------------------------
+SECTION B — LEGAL ENTITY EXTRACTOR
+--------------------------------------------------------------------------------
+
+Build /pipeline/legal_entity_extractor.py:
+
+  extract_legal_entities(text: str) -> dict:
+    Using regex + NLP, extract from any legal text:
+
+    ACT REFERENCES:
+      Pattern: r"(Section|S\.|Sec\.)\s*(\d+[A-Z]?)\s*(of\s+the\s+)?([A-Z][A-Za-z\s]+Act,?\s*\d{4})"
+      Also: r"Article\s+(\d+[A-Z]?)\s+of\s+the\s+Constitution"
+      Normalise: "Sec. 138 N.I. Act" → "Section 138, Negotiable Instruments Act 1881"
+
+    CASE CITATIONS:
+      Pattern: r"(\d{4})\s+(\d+)\s+(SCC|AIR|SCR|Cr\.?LJ|ILR)\s+(\d+)"
+      Also: r"([A-Z][a-z]+\s+v\.?\s+[A-Z][a-z]+)\s*[\(\[]?(\d{4})[\)\]]?"
+      e.g. "AIR 2019 SC 2014", "Indus Airways v. Magnum Aviation (2014)"
+
+    LIMITATION PERIODS:
+      Pattern: match "within \d+ (days|months|years)" near legal action words
+      Map to: Limitation Act 1963 Article numbers
+
+    LEGAL TOPICS (keyword classification):
+      Criminal: murder, rape, theft, cheating, bail, FIR, cognisable
+      Civil: contract, decree, injunction, specific performance, damages
+      Family: divorce, maintenance, custody, succession, will
+      Tax: GST, income tax, TDS, assessment, appeal, penalty
+      Corporate: company, director, winding up, insolvency, NCLT
+      Property: sale, lease, mortgage, partition, patta, encumbrance
+      Constitutional: fundamental rights, writ, habeas corpus, mandamus
+      Consumer: deficiency, unfair trade, redressal, compensation
+
+    Return: {acts, citations, topics, limitation_refs, parties, court_names}
+
+--------------------------------------------------------------------------------
+SECTION C — LEGAL ENGINE CLASS
+--------------------------------------------------------------------------------
+
+BUILD /pipeline/legal_engine.py:
+
+IMPORTS:
+  from pipeline.rag_engine import RAGEngine
+  from pipeline.legal_entity_extractor import extract_legal_entities
+  from pipeline.language_registry import get_ocr_string
+  import json, os, re
+
+LOAD section_maps.json at module level.
+
+CLASS: LegalEngine
+
+__init__(self):
+  Connect to Qdrant.
+  Load BGE-M3 for embeddings.
+  Load section_maps.json.
+  Load RAGEngine instance (reuse existing loaded model).
+
+------------------------------------------------------------
+METHOD: classify_legal_query(question: str) -> dict
+------------------------------------------------------------
+  Classify the legal question into:
+  {
+    query_type: "judgement_search" | "act_lookup" | "procedure_query" |
+                "drafting_request" | "case_analysis" | "limitation_check" |
+                "new_law_mapping" | "client_matter" | "general_legal",
+    legal_topics: [list],
+    acts_mentioned: [list],
+    sections_mentioned: [list],
+    requires_drafting: bool,
+    language: "en"|"hi"|"ta" etc.
+  }
+
+  QUERY TYPE RULES:
+    "Find judgements" | "show cases" | "precedent" → judgement_search
+    "what does section" | "explain section" | "under which act" → act_lookup
+    "how to file" | "procedure for" | "which court" | "what documents" → procedure_query
+    "draft" | "write" | "prepare" | "notice" | "petition" | "agreement" → drafting_request
+    "strength of case" | "chances of winning" | "analyse facts" → case_analysis
+    "limitation period" | "time limit" | "how many days" → limitation_check
+    "IPC" + "BNS" | "old section" | "new code" → new_law_mapping
+
+------------------------------------------------------------
+METHOD: search_judgements(query: str, filters: dict = None) -> list
+------------------------------------------------------------
+  Convert query to legal search:
+    1. Extract entities from query using extract_legal_entities()
+    2. Build enhanced search query:
+         If sections mentioned: "Section {X} {Act} ratio decidendi judgement"
+         If facts provided: use fact pattern + legal topic keywords
+    3. Search legal_sc_judgements + relevant legal_hc_judgements_{state}
+    4. Retrieve top 10 (more than standard RAG — judgements need wider net)
+    5. POST-FILTER:
+         Remove overruled judgements (is_overruled=True) — flag them separately
+         Prioritise recent judgements (last 10 years) unless historical needed
+         For BNS/BNSS queries: also include old IPC/CrPC judgements as applicable
+    6. Return list of {case_name, citation, court, date, ratio, relevant_chunk,
+                       is_overruled, overruled_by, relevance_score}
+
+  SPECIAL: If query mentions old IPC section, auto-translate:
+    "Section 302 IPC" → also search "Section 103 BNS" + cite mapping.
+
+------------------------------------------------------------
+METHOD: lookup_act_section(act_name: str, section: str) -> dict
+------------------------------------------------------------
+  Exact section retrieval from legal_central_acts or state_acts.
+  Returns: {section_text, act_name, section_number, section_title,
+            sub_sections, cross_references, bns_equivalent, bnss_equivalent}
+  Also returns: up to 5 key judgements interpreting this section.
+
+------------------------------------------------------------
+METHOD: calculate_limitation(case_type: str, trigger_date: str,
+                               special_facts: str = None) -> dict
+------------------------------------------------------------
+  Limitation periods under Limitation Act 1963:
+  COMMON_LIMITATIONS = {
+    "money_suit": {"period": "3 years", "article": "113"},
+    "cheque_bounce_138": {"period": "1 month from receipt of notice", "article": "N.I. Act S.142"},
+    "consumer_complaint": {"period": "2 years from cause of action", "article": "Consumer Protection Act S.69"},
+    "civil_appeal_sc": {"period": "90 days from decree", "article": "Limitation Act Art. 116"},
+    "criminal_appeal_hc": {"period": "60 days from judgement", "article": "CrPC S.374/BNSS S.415"},
+    "writ_petition": {"period": "No fixed limit — promptness required", "article": "Constitution A.226"},
+    "property_suit": {"period": "12 years", "article": "Limitation Act Art. 65"},
+    "mortgage_suit": {"period": "30 years", "article": "Limitation Act Art. 61"},
+    "labour_dispute": {"period": "3 years", "article": "ID Act S.10(2A)"},
+    "cheque_138_complaint": {"period": "1 month from 15th day after notice", "article": "N.I. Act S.142(b)"},
+  }
+
+  Calculate:
+    expiry_date = trigger_date + period
+    days_remaining = expiry_date - today
+    If special_facts: check condonation grounds (illness, fraud, mistake of law)
+
+  Return: {limitation_period, trigger_event, expiry_date, days_remaining,
+           article_reference, condonation_possible, condonation_grounds}
+
+------------------------------------------------------------
+METHOD: draft_legal_document(doc_type: str, facts: dict,
+                               language: str = "en") -> str
+------------------------------------------------------------
+  SUPPORTED DOC TYPES:
+    legal_notice          — for cheque bounce, breach of contract, defamation
+    demand_notice         — pre-litigation demand
+    reply_to_notice       — response to any legal notice
+    plaint                — civil suit institution
+    written_statement     — defence in civil suit
+    bail_application      — regular bail under CrPC/BNSS
+    anticipatory_bail     — under Section 438 CrPC / Section 484 BNSS
+    criminal_complaint     — private complaint under S.200 CrPC / S.223 BNSS
+    writ_petition         — HC writ (habeas corpus, mandamus, certiorari)
+    consumer_complaint    — DCDRC/SCDRC/NCDRC complaint
+    affidavit             — general or court-specific
+    agreement_sale        — property sale agreement
+    rental_agreement      — residential or commercial
+    will                  — simple or complex succession
+    mou                   — memorandum of understanding
+    partnership_deed      — business partnership
+    power_of_attorney     — general or specific
+
+  DRAFTING PROMPT for LLaMA:
+    "You are a senior Indian advocate with 20 years of experience.
+     Draft a {doc_type} in proper Indian legal format.
+     Facts provided: {facts}
+     Language: {language}
+
+     Requirements:
+     1. Use correct legal terminology and section references
+     2. Include all mandatory legal elements for this document type
+     3. Follow format prescribed by {relevant court/authority}
+     4. If drafting in Tamil/Hindi: use legal terminology in that language
+        with English section references retained
+     5. Include correct cause title, court/authority details, prayer/relief
+     6. Cite relevant Acts and sections for every legal claim made
+     7. End with proper signature block and verification/affidavit if needed"
+
+  Temperature: 0.1 (legal drafting must be precise, not creative)
+  Return: formatted legal document as string + list of cited sections/acts
+
+------------------------------------------------------------
+METHOD: analyse_case_strength(facts: str, client_position: str,
+                               legal_topic: str) -> dict
+------------------------------------------------------------
+  Purpose: given case facts, assess legal strength.
+
+  STEP 1: Extract legal entities from facts.
+  STEP 2: Search judgements for similar fact patterns.
+  STEP 3: Identify applicable Acts and sections.
+  STEP 4: LLaMA analysis prompt:
+    "Analyse the strength of the following legal case.
+     Facts: {facts}
+     Client's position: {client_position}
+     Relevant law area: {legal_topic}
+
+     Provide:
+     1. Strength assessment: Strong / Moderate / Weak (with reasoning)
+     2. Key legal issues in the case
+     3. Strongest arguments FOR the client
+     4. Weaknesses and counter-arguments opponent may raise
+     5. Key judgements supporting client's position
+     6. Recommended strategy
+     7. Risk assessment (probability of success: High/Medium/Low)
+
+     Base analysis ONLY on Indian law and provided judgements.
+     Do not give definitive legal advice — this is preliminary analysis."
+
+  Return: {strength, legal_issues, arguments_for, weaknesses,
+           supporting_judgements, strategy, risk_level, disclaimer}
+
+------------------------------------------------------------
+METHOD: query(question: str, firm_id: str = None,
+               client_matter_id: str = None) -> dict
+------------------------------------------------------------
+  Full legal query pipeline:
+
+  1. classify_legal_query(question)
+  2. Route by query_type:
+     judgement_search → search_judgements()
+     act_lookup → lookup_act_section()
+     limitation_check → calculate_limitation()
+     drafting_request → draft_legal_document()
+     case_analysis → analyse_case_strength()
+     new_law_mapping → section_mapper lookup + judgement search
+     procedure_query → RAG search on legal_court_procedures collection
+     client_matter → RAG search on legal_client_docs collection (scoped to firm_id)
+     general_legal → full RAG search on all legal collections
+
+  3. If client_matter_id provided: also search firm's private document collection
+     (legal_client_docs scoped to firm_id — strict isolation)
+
+  4. Build response with LLaMA:
+     System prompt:
+     "You are BharatLLM Legal — India's AI legal research assistant.
+      You assist advocates, lawyers, and legal professionals with:
+      - Indian case law research (SC, HC, District Courts)
+      - Acts and section interpretation
+      - Legal document drafting
+      - Case strategy analysis
+      - Court procedure guidance
+
+      Critical rules:
+      1. ALWAYS cite the exact case name, citation, court, and year
+      2. ALWAYS cite the section number and Act name
+      3. Note if any cited case has been overruled
+      4. Note BNS/BNSS equivalents when IPC/CrPC sections are mentioned
+      5. Respond in the same language the question was asked
+      6. Add disclaimer: 'This is AI-assisted legal research.
+         Consult a qualified advocate before taking legal action.'
+      7. Never give categorical legal advice — give research and analysis"
+
+  Return:
+    {answer, cited_cases: [{name, citation, court, year, ratio}],
+     cited_sections: [{act, section, text_excerpt}],
+     document_drafted: str or null,
+     limitation_info: dict or null,
+     overruled_warnings: [list],
+     bns_bnss_mappings: [list],
+     query_type, confidence, disclaimer}
+
+--------------------------------------------------------------------------------
+SECTION D — LEGAL TOOLS FOR AGENT REGISTRY (adds to tool_registry.py)
+--------------------------------------------------------------------------------
+
+Add these to TOOL_REGISTRY in /agents/tool_registry.py:
+
+TOOL L1 — search_judgements:
+  description: "Search Indian Supreme Court and High Court judgements
+                by legal point, section number, or fact pattern."
+  parameters: {query, court: "SC|HC|all", state: optional, years_back: int}
+  requires_approval: False
+
+TOOL L2 — lookup_section:
+  description: "Get the exact text of any section of any Indian Act."
+  parameters: {act_name, section_number}
+  requires_approval: False
+
+TOOL L3 — check_limitation:
+  description: "Calculate limitation period for any legal action under
+                Limitation Act 1963."
+  parameters: {case_type, trigger_date, special_circumstances: optional}
+  requires_approval: False
+
+TOOL L4 — draft_legal_doc:
+  description: "Draft a legal document — notice, plaint, petition,
+                bail application, agreement, or affidavit."
+  parameters: {doc_type, facts: dict, language}
+  requires_approval: False
+  (requires_approval=True only when used in CommsAgent to send the document)
+
+TOOL L5 — map_old_to_new_law:
+  description: "Map old IPC/CrPC/Evidence Act sections to new
+                BNS/BNSS/BSA equivalents and vice versa."
+  parameters: {old_code: "IPC|CrPC|Evidence", section_number}
+  requires_approval: False
+
+================================================================================
+PROMPT 4.7 — BharatLLM FINANCE ENGINE
+================================================================================
+
+BUILD /pipeline/finance_engine.py and all supporting infrastructure.
+
+--------------------------------------------------------------------------------
+SECTION A — FINANCE KNOWLEDGE BASE (corpus ingestion)
+--------------------------------------------------------------------------------
+
+CREATE /pipeline/assets/finance_corpus/ directory:
+  /income_tax/     — Income Tax Act 1961 + all amendments + CBDT circulars
+  /gst/            — CGST/IGST/SGST Acts + Rules + GSTN notifications + FAQs
+  /rbi/            — RBI Master Directions + circulars + guidelines
+  /sebi/           — SEBI regulations + circulars + guidance notes
+  /companies_act/  — Companies Act 2013 + Rules + MCA circulars
+  /fema/           — FEMA rules + RBI FEMA circulars
+  /transfer_pricing/ — TP rules + documentation requirements + safe harbours
+  /customs/        — Customs Act + notifications + tariff schedules
+  /irda/           — IRDA regulations (insurance)
+  /ibc/            — Insolvency and Bankruptcy Code 2016
+  /ind_as/         — Indian Accounting Standards
+  /budget_speeches/ — Union Budget speeches 2000–present
+  /itat_orders/    — Income Tax Appellate Tribunal orders
+  /cestat_orders/  — Customs, Excise, Service Tax Appellate Tribunal
+
+FINANCE CORPUS SOURCES:
+  Income Tax + CBDT: https://incometaxindia.gov.in/Pages/communications/circulars.aspx
+  GST: https://www.gst.gov.in/newsandupdates/read
+  RBI: https://www.rbi.org.in/Scripts/BS_CircularIndexDisplay.aspx
+  SEBI: https://www.sebi.gov.in/legal/circulars.html
+  MCA: https://www.mca.gov.in/content/mca/global/en/acts-rules/acts.html
+  Budget: https://www.indiabudget.gov.in
+
+FINANCE QDRANT COLLECTIONS:
+  finance_income_tax        — IT Act + CBDT circulars
+  finance_gst               — GST Acts + GSTN notifications
+  finance_rbi               — RBI Master Directions + circulars
+  finance_sebi              — SEBI regulations
+  finance_companies_act     — Companies Act + MCA
+  finance_fema              — FEMA + foreign exchange rules
+  finance_transfer_pricing  — TP documentation + rules
+  finance_itat              — ITAT orders and judgements
+  finance_client_docs       — client-uploaded financial documents (per-firm isolation)
+
+FINANCE METADATA per chunk:
+  {
+    chunk_id, source_type: "act|circular|notification|order|budget|standard",
+    regulation_name, regulation_number, effective_date, superseded_by,
+    financial_year_applicable, tax_category: [list],
+    topics: [list], is_current: bool, amendment_history: [list]
+  }
+
+--------------------------------------------------------------------------------
+SECTION B — COMPLIANCE CALENDAR DATABASE
+--------------------------------------------------------------------------------
+
+Create /pipeline/assets/finance_corpus/compliance_calendar.json:
+  Comprehensive database of all Indian financial compliance deadlines.
+
+  STRUCTURE:
+  {
+    "entity_type": {
+      "pvt_ltd": {
+        "gst_r1_monthly": {
+          "description": "GSTR-1 monthly return",
+          "due_day": 11,    // 11th of following month
+          "due_month_offset": 1,
+          "applicable_to": "turnover > 5Cr or opted",
+          "penalty": "₹50/day (₹20 for nil return)",
+          "section": "CGST Act Section 37"
+        },
+        "tds_deposit": {
+          "description": "Monthly TDS deposit",
+          "due_day": 7,
+          "due_month_offset": 1,
+          "penalty": "1.5% per month interest under Section 201(1A)"
+        },
+        "advance_tax_q1": {
+          "description": "Advance tax Q1 installment (15%)",
+          "due_date": "June 15",
+          "fixed_annual": true
+        },
+        // ... all ~60 compliance obligations
+      },
+      "partnership": {...},
+      "individual": {...},
+      "trust": {...},
+      "llp": {...}
+    }
+  }
+
+CLASS: ComplianceCalendar
+
+get_upcoming_deadlines(entity_type: str, days_ahead: int = 30) -> list:
+  Return all deadlines in next {days_ahead} days for entity_type.
+  Sort by urgency (nearest first).
+  Return: [{deadline_name, due_date, days_remaining, penalty_if_missed,
+            section_reference, form_number, filing_portal_url}]
+
+generate_annual_calendar(entity_type: str, financial_year: str) -> dict:
+  Return complete 12-month compliance calendar.
+  Group by month. Mark critical deadlines.
+
+alert_overdue(entity_type: str) -> list:
+  Return list of deadlines already passed with penalty accumulation.
+
+--------------------------------------------------------------------------------
+SECTION C — FINANCE ENGINE CLASS
+--------------------------------------------------------------------------------
+
+CLASS: FinanceEngine
+
+__init__(self):
+  Connect to Qdrant.
+  Load BGE-M3.
+  Load RAGEngine.
+  Load ComplianceCalendar.
+  Load finance_circular_index (dict: {circular_number: {date, summary, url}})
+
+------------------------------------------------------------
+METHOD: classify_finance_query(question: str) -> dict
+------------------------------------------------------------
+  {
+    query_type: "gst_query" | "income_tax_query" | "rbi_sebi_query" |
+                "compliance_calendar" | "notice_response" | "tax_planning" |
+                "budget_analysis" | "transfer_pricing" | "fema_query" |
+                "itat_search" | "ind_as_query" | "general_finance",
+    tax_category: [list],
+    regulation_area: str,
+    requires_calculation: bool,
+    requires_drafting: bool
+  }
+
+------------------------------------------------------------
+METHOD: search_circulars(query: str, regulation: str = "all",
+                          date_from: str = None) -> list
+------------------------------------------------------------
+  Search across all finance regulatory collections.
+  regulation filter: "cbdt"|"gstn"|"rbi"|"sebi"|"mca"|"all"
+
+  SMART QUERY ENHANCEMENT:
+    If query mentions a product/service: add GST rate query terms
+    If query mentions a company type: add Companies Act terms
+    If query mentions foreign transaction: add FEMA + transfer pricing terms
+    If query mentions bank: add RBI Master Direction terms
+
+  POST-FILTER:
+    Remove superseded circulars (is_current=False) — show them separately
+    Highlight most recent circular on same topic
+    Flag if multiple contradicting circulars exist (ask user to clarify)
+
+  Return: [{circular_number, date, title, summary, full_text_chunk,
+            effective_date, supersedes, is_current, source_url}]
+
+------------------------------------------------------------
+METHOD: get_gst_rate(goods_or_service_description: str,
+                      hsn_or_sac: str = None) -> dict
+------------------------------------------------------------
+  Returns GST rate for any goods or service with full notification citation.
+
+  Steps:
+  1. If HSN/SAC provided: direct lookup in GST rate schedule
+  2. If description only: NLP classification → HSN/SAC → rate lookup
+  3. Identify applicable GST category: Nil / 0.25% / 3% / 5% / 12% / 18% / 28%
+  4. Check if service is exempted under any notification
+  5. Check if RCM (Reverse Charge Mechanism) applies
+
+  Return:
+    {
+      goods_service: str,
+      hsn_sac: str,
+      gst_rate: str,
+      cgst: str, sgst: str, igst: str,
+      rcm_applicable: bool,
+      exempt: bool,
+      notification_reference: str,
+      effective_from: str,
+      previous_rate: str or null,
+      rate_changed_on: str or null,
+      special_conditions: str or null
+    }
+
+------------------------------------------------------------
+METHOD: calculate_tax(income_details: dict, fy: str,
+                       regime: str = "new") -> dict
+------------------------------------------------------------
+  Income Tax calculation for individuals and entities.
+
+  INDIVIDUAL CALCULATION:
+    Apply slab rates for FY specified.
+    New regime slabs (FY 2024-25):
+      0–3L: Nil, 3–7L: 5%, 7–10L: 10%, 10–12L: 15%,
+      12–15L: 20%, >15L: 30%
+    Old regime: standard slabs + all deductions (80C, 80D, HRA, LTA etc.)
+
+    Deductions:
+      80C: up to ₹1.5L (PF, ELSS, PPF, life insurance etc.)
+      80D: health insurance premium up to ₹25K/50K
+      80CCD(1B): additional NPS up to ₹50K
+      HRA: calculated as min of (actual HRA, 50%/40% of basic, excess rent)
+      Standard deduction: ₹50,000 (old regime) / ₹75,000 (new regime FY25)
+
+    Also calculate:
+      Surcharge (if income > ₹50L)
+      Health and Education Cess (4%)
+      AMT if applicable
+
+  COMPANY CALCULATION:
+    Domestic company rates (FY 2024-25):
+      General: 25% (turnover ≤ ₹400Cr) / 30% (above)
+      New manufacturing: 15% (Section 115BAB)
+      MAT: 15% of book profit if tax < MAT
+    Plus surcharge + cess
+
+  Return: {total_income, taxable_income, tax_before_cess,
+           cess, surcharge, total_tax, effective_rate,
+           deductions_claimed, regime_used, comparison: {old_vs_new if individual}}
+
+------------------------------------------------------------
+METHOD: draft_notice_reply(notice_type: str, notice_content: str,
+                            client_facts: dict) -> str
+------------------------------------------------------------
+  SUPPORTED NOTICE TYPES:
+    it_scrutiny         — IT scrutiny assessment notice (Section 143(2))
+    it_demand           — Tax demand notice (Section 156)
+    it_penalty          — Penalty notice (Section 274)
+    gst_mismatch        — GST mismatch / discrepancy notice
+    gst_show_cause      — GST show cause notice for evasion
+    gst_cancellation    — GST registration cancellation notice
+    rbi_compliance      — RBI compliance deficiency letter
+    sebi_query          — SEBI query / show cause notice
+    mca_default         — MCA notice for ROC filing default
+    custom_demand       — Customs duty demand notice
+
+  DRAFT PROMPT for LLaMA:
+    "You are a senior CA and tax advocate with 20 years of Indian
+     tax practice. Draft a formal reply to the following notice.
+
+     Notice type: {notice_type}
+     Notice content: {notice_content}
+     Client facts: {client_facts}
+     Relevant circulars found: {circular_search_results}
+
+     Requirements:
+     1. Address every point raised in the notice
+     2. Cite exact circular/notification numbers for every legal position
+     3. Use formal language appropriate for tax authority correspondence
+     4. Include all mandatory elements: acknowledgement of notice,
+        without prejudice clause, factual matrix, legal submissions,
+        prayer/relief sought
+     5. Attach list of supporting documents to be submitted
+     6. Follow time limit for reply — note if approaching deadline"
+
+  Temperature: 0.05 (tax notices require extreme precision)
+  Return: drafted reply + list of supporting documents needed + deadline info
+
+------------------------------------------------------------
+METHOD: analyse_budget_impact(budget_text: str,
+                               client_type: str) -> dict
+------------------------------------------------------------
+  CALLED ON UNION BUDGET DAY — real-time analysis as Finance Minister speaks.
+
+  Process the Budget Speech / Finance Bill text:
+  1. Extract all tax rate changes (income tax, corporate tax, GST, customs)
+  2. Identify new deductions or removal of old ones
+  3. Identify new compliance requirements
+  4. Calculate impact on client_type (individual, SME, large company, NBFC, etc.)
+
+  Return:
+    {
+      tax_changes: [{what, old_rate, new_rate, effective_from, section}],
+      new_deductions: [{deduction, limit, section, applicable_to}],
+      withdrawn_deductions: [{what, reason}],
+      compliance_changes: [{what, effective_date, action_needed}],
+      net_impact_on_client: "Positive/Negative/Neutral",
+      savings_or_cost: "₹X additional tax / ₹Y savings",
+      immediate_actions: [list of things to do before April 1],
+      planning_opportunities: [list of new planning options]
+    }
+
+------------------------------------------------------------
+METHOD: query(question: str, firm_id: str = None,
+               client_id: str = None, entity_type: str = None) -> dict
+------------------------------------------------------------
+  Full finance query pipeline:
+
+  1. classify_finance_query(question)
+  2. Route:
+     gst_query → search_circulars("gstn") + get_gst_rate()
+     income_tax_query → search_circulars("cbdt") + calculate_tax if numbers present
+     compliance_calendar → ComplianceCalendar.get_upcoming_deadlines()
+     notice_response → draft_notice_reply()
+     tax_planning → search_circulars + calculate_tax + LLaMA planning analysis
+     budget_analysis → analyse_budget_impact()
+     rbi_sebi_query → search_circulars("rbi"/"sebi")
+     transfer_pricing → finance_transfer_pricing collection search
+     itat_search → finance_itat collection search
+     client_matter → finance_client_docs scoped to firm_id
+
+  3. Generate response with LLaMA:
+     System prompt:
+     "You are BharatLLM Finance — India's AI financial intelligence assistant
+      for CA firms, tax professionals, and financial compliance teams.
+
+      Rules:
+      1. ALWAYS cite the exact circular number, notification number, or
+         section reference for every statement
+      2. State the effective date for every rate or rule mentioned
+      3. Note if a circular has been superseded — cite the newer one
+      4. For GST queries: always specify CGST/SGST/IGST rates separately
+      5. For tax calculations: show the working step by step
+      6. Respond in the same language as the question
+      7. Add disclaimer: 'This is AI-assisted research. Verify with the
+         latest notifications and consult your professional advisor.'
+      8. If a deadline is involved: state it prominently with days remaining"
+
+  Return:
+    {answer, circulars_cited: [{number, date, title, url}],
+     sections_cited: [{act, section}], gst_rate_info: dict or null,
+     tax_calculation: dict or null, compliance_deadlines: list or null,
+     document_drafted: str or null, is_current: bool,
+     superseded_warning: str or null, confidence, disclaimer}
+
+--------------------------------------------------------------------------------
+SECTION D — FINANCE TOOLS FOR AGENT REGISTRY
+--------------------------------------------------------------------------------
+
+Add to TOOL_REGISTRY in /agents/tool_registry.py:
+
+TOOL F1 — search_tax_circulars:
+  description: "Search CBDT, GSTN, RBI, SEBI, MCA circulars and notifications
+                for any tax or financial regulation query."
+  parameters: {query, regulation: "cbdt|gstn|rbi|sebi|mca|all",
+               date_from: optional}
+  requires_approval: False
+
+TOOL F2 — get_gst_rate:
+  description: "Get the exact GST rate for any goods or service with
+                HSN/SAC code and circular citation."
+  parameters: {description, hsn_sac: optional}
+  requires_approval: False
+
+TOOL F3 — calculate_income_tax:
+  description: "Calculate income tax liability for individual or company
+                under old or new tax regime."
+  parameters: {income_details: dict, financial_year, entity_type,
+               regime: "old|new"}
+  requires_approval: False
+
+TOOL F4 — get_compliance_deadlines:
+  description: "Get upcoming compliance deadlines for GST, TDS, advance tax,
+                ROC filings, and other regulatory requirements."
+  parameters: {entity_type, days_ahead: int, financial_year: optional}
+  requires_approval: False
+
+TOOL F5 — draft_tax_notice_reply:
+  description: "Draft a formal reply to an Income Tax or GST notice with
+                all required citations and legal grounds."
+  parameters: {notice_type, notice_content, client_facts: dict}
+  requires_approval: True
+
+TOOL F6 — analyse_budget_impact:
+  description: "Analyse the impact of Union Budget announcements on a
+                specific client type — calculate savings or additional tax."
+  parameters: {budget_points: str, client_type, financial_year}
+  requires_approval: False
+
+================================================================================
+SECTION E — QUERY ROUTER UPDATES
+================================================================================
+
+UPDATE /pipeline/query_router.py to handle legal and finance queries:
+
+ADD TO IMPORTS:
+  from pipeline.legal_engine import LegalEngine
+  from pipeline.finance_engine import FinanceEngine
+
+ADD TO QueryRouter.__init__():
+  self.legal_engine = LegalEngine()
+  self.finance_engine = FinanceEngine()
+
+UPDATE classify() to detect legal and finance queries:
+
+LEGAL_SIGNALS = [
+  "section", "act", "judgement", "court", "case", "bail", "FIR",
+  "petition", "plaint", "notice", "limitation", "advocate", "lawyer",
+  "IPC", "BNS", "CrPC", "BNSS", "Supreme Court", "High Court",
+  "contract", "divorce", "succession", "will", "deed", "agreement",
+  "draft legal", "legal notice", "writ", "habeas corpus",
+  # Hindi legal signals:
+  "धारा", "अदालत", "न्यायालय", "वकील", "मुकदमा", "जमानत",
+  # Tamil legal signals:
+  "பிரிவு", "நீதிமன்றம்", "வழக்கறிஞர்", "வழக்கு", "ஜாமீன்"
+]
+
+FINANCE_SIGNALS = [
+  "GST", "income tax", "TDS", "CBDT", "GSTN", "circular", "RBI",
+  "SEBI", "return", "filing", "compliance", "advance tax", "deduction",
+  "80C", "GSTR", "ITR", "notice", "demand", "assessment", "appeal",
+  "ITAT", "CA", "audit", "balance sheet", "P&L", "FEMA", "transfer pricing",
+  "customs", "IBC", "insolvency", "NBFC", "IRDA",
+  # Hindi finance signals:
+  "कर", "जीएसटी", "आयकर", "टीडीएस", "रिटर्न", "अनुपालन",
+  # Tamil finance signals:
+  "வரி", "ஜிஎஸ்டி", "வருமான வரி", "திரும்ப தாக்கல்"
+]
+
+UPDATE route_and_query():
+  has_legal = any(s.lower() in question.lower() for s in LEGAL_SIGNALS)
+  has_finance = any(s.lower() in question.lower() for s in FINANCE_SIGNALS)
+
+  If has_legal AND NOT has_finance:
+    result = self.legal_engine.query(question, firm_id, client_matter_id)
+    final_type = "LEGAL"
+
+  Elif has_finance AND NOT has_legal:
+    result = self.finance_engine.query(question, firm_id, client_id, entity_type)
+    final_type = "FINANCE"
+
+  Elif has_legal AND has_finance:
+    # Mixed — e.g. "legal notice for GST fraud" or "IBC insolvency resolution"
+    legal_result = self.legal_engine.query(question, firm_id, client_matter_id)
+    finance_result = self.finance_engine.query(question, firm_id, client_id, entity_type)
+    # Fuse both responses
+    final_type = "LEGAL_FINANCE"
+
+  Else:
+    # Standard RAG + SQL + Web flow (existing behaviour)
+    ...
+
+  UPDATE return dict to include:
+    "vertical": "LEGAL"|"FINANCE"|"LEGAL_FINANCE"|"GOVT"|"GENERAL"
+    "circulars_cited": list (from finance engine)
+    "cases_cited": list (from legal engine)
+    "compliance_deadlines": list (from finance engine)
+    "limitation_info": dict (from legal engine)
+    "document_drafted": str (if drafting was done)
+
+================================================================================
+SECTION F — QDRANT COLLECTIONS UPDATE
+================================================================================
+
+UPDATE /pipeline/collection_registry.json — add all legal and finance collections:
+
+  For STATE_GOVT deployment (BharatLLM Legal and Finance available to all):
+  {
+    "legal_collections": {
+      "Central Acts": "legal_central_acts",
+      "SC Judgements": "legal_sc_judgements",
+      "HC Judgements TN": "legal_hc_judgements_tn",
+      "HC Judgements MH": "legal_hc_judgements_mh",
+      // ... per state
+      "Constitution": "legal_constitution"
+    },
+    "finance_collections": {
+      "Income Tax": "finance_income_tax",
+      "GST": "finance_gst",
+      "RBI": "finance_rbi",
+      "SEBI": "finance_sebi",
+      "Companies Act": "finance_companies_act",
+      "FEMA": "finance_fema",
+      "ITAT": "finance_itat"
+    }
+  }
+
+  NOTE: Legal and Finance collections are NOT department-scoped.
+  They are VERTICAL-scoped — a law firm user accesses legal collections,
+  a CA firm user accesses finance collections, based on their subscription tier.
+
+================================================================================
+SECTION G — PORTAL UPDATES FOR LAW + FINANCE USERS
+================================================================================
+
+UPDATE /frontend/src/portals/chat/ChatPortal.jsx:
+
+ADD VERTICAL SELECTOR in sidebar (below org badge):
+  If user.vertical == "legal":
+    Show: "⚖ Legal mode" indicator (blue)
+    Quick questions: "Find IPC 302 BNS equivalent", "Draft legal notice",
+                     "Limitation period for cheque bounce", "Latest SC on NI Act"
+  If user.vertical == "finance":
+    Show: "₹ Finance mode" indicator (green)
+    Quick questions: "GST rate for software services", "CBDT circular today",
+                     "Upcoming compliance deadlines", "Draft notice reply"
+  If user.vertical == "government":
+    Existing behaviour (saffron indicator)
+
+ADD CITATION DISPLAY in bot messages:
+  Legal:  Show case citations as expandable chips:
+            [Indus Airways v. Magnum (2014) 12 SCC 539 ↗]
+          Click → opens indiankanoon.org judgement in new tab
+
+  Finance: Show circular citations as chips:
+             [CBDT Circular 183/15/2022 ↗]
+           Click → opens incometaxindia.gov.in circular in new tab
+
+ADD DISCLAIMER BANNER (shown once per session):
+  Legal: "BharatLLM Legal provides AI-assisted research only.
+          Always verify with current law and consult a qualified advocate."
+  Finance: "BharatLLM Finance provides AI-assisted research only.
+            Always verify with latest notifications and consult your CA."
+
+================================================================================
+SECTION H — INGESTION PIPELINE FOR LEGAL AND FINANCE CORPUS
+================================================================================
+
+Build /pipeline/ingest_legal.py and /pipeline/ingest_finance.py:
+  Specialised ingestion scripts for legal and financial documents.
+
+  LEGAL INGESTION SPECIAL HANDLING:
+    Section number extraction: identify Act section headers
+    Cross-reference extraction: "As per Section X of Act Y"
+    Judgement metadata: extract case name, citation, bench, ratio decidendi
+    Overruling detection: look for "is hereby overruled" phrases
+    BNS/BNSS mapping: auto-tag old IPC/CrPC references with new equivalents
+
+  FINANCE INGESTION SPECIAL HANDLING:
+    Circular number extraction: "Circular No. 183/15/2022" format
+    Effective date extraction: "with effect from" / "effective from"
+    Supersession detection: "supersedes Circular No. X"
+    Rate extraction: percentage patterns for tax rates
+    Compliance date extraction: "due date", "last date", "by"
+
+  BOTH — Quality gates:
+    Legal: chunk must contain at least one section reference or citation
+    Finance: chunk must contain at least one circular/notification reference or rate
+
+================================================================================
+SECTION I — REVENUE PROJECTIONS (LAW + FINANCE)
+================================================================================
+
+LEGAL VERTICAL REVENUE TARGETS:
+  Solo advocates:           5,000 × ₹3,000 = ₹1.5Cr/month = ₹18Cr ARR
+  Mid-size law firms:       1,000 × ₹25,000 = ₹2.5Cr/month = ₹30Cr ARR
+  Corporate legal depts:    500 × ₹75,000 = ₹3.75Cr/month = ₹45Cr ARR
+  TOTAL LEGAL MAX:                                            ₹93Cr ARR
+
+FINANCE VERTICAL REVENUE TARGETS:
+  Small CA firms:           10,000 × ₹8,000 = ₹8Cr/month = ₹96Cr ARR
+  Mid-size CA firms:        2,000 × ₹25,000 = ₹5Cr/month = ₹60Cr ARR
+  Banks / NBFCs:            500 × ₹75,000 = ₹3.75Cr/month = ₹45Cr ARR
+  TOTAL FINANCE MAX:                                         ₹201Cr ARR
+
+COMBINED LAW + FINANCE MAX ARR:                             ₹294Cr ARR
+
+90-DAY FAST TRACK TO FIRST ₹10L MRR:
+  Week 1–2: Index IT Act + last 5 years CBDT circulars → demo to 5 CA firms
+  Week 3–4: Index GST Act + GSTN notifications → GST query demos
+  Week 5–6: Index IPC/BNS + 10,000 HC judgements → demo to Chennai HC firms
+  Week 7–8: Add compliance calendar + notice reply drafter → full CA product
+  Month 3: Approach ICAI Chennai chapter for bulk licensing deal
+  Target: 50 CA firms × ₹15,000 + 20 law firms × ₹25,000 = ₹13.25L MRR
+
+================================================================================
+VERIFICATION CHECKLIST
+================================================================================
+
+LEGAL ENGINE:
+  [ ] Prompt "What is Section 302 BNS?" returns BNS text + IPC equivalent note
+  [ ] Prompt "Find SC judgements on cheque bounce Section 138" returns 5+ cases
+  [ ] Limitation calculator returns correct period for cheque bounce notice reply
+  [ ] Legal notice drafted with correct format and section references
+  [ ] Tamil language legal query returns Tamil answer with English citations
+  [ ] Overruled cases flagged with warning in response
+  [ ] Client documents (firm_id scoped) do not appear in other firms' searches
+
+FINANCE ENGINE:
+  [ ] "What is the GST rate on software services?" returns 18% with SAC + notification
+  [ ] "Upcoming compliance deadlines for Pvt Ltd" returns correct dates with penalties
+  [ ] GST notice reply drafted with correct citations and mandatory elements
+  [ ] CBDT circulars from last 12 months indexed and searchable
+  [ ] Superseded circulars flagged — newer circular shown prominently
+  [ ] Tax calculation shows step-by-step working
+  [ ] Budget impact analysis generates client-specific memo
+
+PORTAL:
+  [ ] Legal mode shows blue indicator and legal quick questions
+  [ ] Finance mode shows green indicator and finance quick questions
+  [ ] Case citations show as clickable chips linking to indiankanoon.org
+  [ ] Circular citations link to source regulatory website
+  [ ] Disclaimer shown on first message of each session
+
+================================================================================
+END OF PROMPTS 4.6 AND 4.7 — LEGAL ENGINE + FINANCE ENGINE
+================================================================================
