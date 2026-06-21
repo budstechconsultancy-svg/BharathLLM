@@ -1,8 +1,8 @@
 import uuid
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
-from fastapi.responses import Response
-from typing import Optional
-from auth.dependencies import get_current_user
+from sqlalchemy.orm import Session
+from auth.dependencies import get_current_user, get_db
+from api.db_models import QueryAuditLog
 from pipeline.voice_engine import VoiceEngine
 from pipeline.vision_engine import VisionEngine
 
@@ -123,7 +123,8 @@ async def multimodal_query(
     image: Optional[UploadFile] = File(None),
     text: Optional[str] = Form(None),
     top_k: Optional[int] = Form(5),
-    user=Depends(get_current_user)
+    user=Depends(get_current_user),
+    db: Session = Depends(get_db)
 ):
     if not any([audio, image, text]):
         raise HTTPException(status_code=400, detail="Must provide at least one of audio, image, or text.")
@@ -169,15 +170,32 @@ async def multimodal_query(
         filters = {}
         if user.get("state_code"):
             filters["state_code"] = user.get("state_code")
+        # Fix F-3: Enforce Jurisdiction spatial filtering
+        if user.get("jurisdiction_district"):
+            filters["district"] = user.get("jurisdiction_district")
             
         # Route and Query using the main pipeline
         router_response = router_instance.route_and_query(unified_question, user.get("department"), filters)
         
         answer = router_response["answer"]
+        query_id_val = str(uuid.uuid4())
+        
+        # Fix F-1: Permanent Audit Trail
+        audit_log = QueryAuditLog(
+            query_id=query_id_val,
+            user_id=user.get("user_id", "unknown"),
+            department=user.get("department", "General"),
+            query_text=unified_question,
+            query_type=router_response.get("query_type", "MULTIMODAL"),
+            answer_text=answer,
+            sources_cited=router_response.get("sources", [])
+        )
+        db.add(audit_log)
+        db.commit()
         
         response = {
             "answer": answer,
-            "query_id": str(uuid.uuid4()),
+            "query_id": query_id_val,
             "unified_query": unified_question,
             "sources": router_response.get("sources", []),
             "query_type": router_response.get("query_type", "MULTIMODAL")

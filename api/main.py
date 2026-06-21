@@ -57,6 +57,11 @@ class QueryRequest(BaseModel):
     top_k: Optional[int] = 5
     override_department: Optional[str] = None
 
+class FeedbackRequest(BaseModel):
+    query_id: str
+    is_correct: bool
+    comments: Optional[str] = None
+
 class AgentTaskRequest(BaseModel):
     task: str
     priority: Optional[str] = "normal"
@@ -417,8 +422,10 @@ def change_user_password(
 
 # ----------------- QUERY SYSTEM ENDPOINTS -----------------
 
+from fastapi import Response
+
 @app.post("/query")
-def query_system(req: QueryRequest, context: dict = Depends(get_request_context), db: Session = Depends(get_db)):
+def query_system(req: QueryRequest, response: Response, context: dict = Depends(get_request_context), db: Session = Depends(get_db)):
     from auth.rate_limiter import ROLE_RATE_LIMITS
     role = context.get("role")
     if role == "api_key":
@@ -441,10 +448,15 @@ def query_system(req: QueryRequest, context: dict = Depends(get_request_context)
         ).update({User.api_quota_used: User.api_quota_used + 1})
         db.commit()
         if rows_updated == 0:
-            # Check if user exists and is a b2b_user to give the right error
+            # Check if user exists and is a b2b_user
             chk = db.query(User).filter(User.id == user_id, User.role == "b2b_user").first()
             if chk:
-                raise HTTPException(status_code=429, detail=f"Quota exceeded for '{chk.subscription_tier}' tier. Upgrade at /auth/subscription/upgrade.")
+                # Fix F-7: Grace Degradation
+                check_rate_limit(f"overage:{user_id}", max_requests=5, window_seconds=60)
+                response.headers["X-RateLimit-Warning"] = "Quota exceeded. Operating in degraded mode (5 req/min). Please upgrade."
+                # Optionally, update overage usage
+                db.query(User).filter(User.id == user_id).update({User.api_quota_used: User.api_quota_used + 1})
+                db.commit()
 
     # Fix 2.2: Enforce API key department scoping
     if context.get("role") == "api_key":
@@ -471,11 +483,30 @@ def query_system(req: QueryRequest, context: dict = Depends(get_request_context)
     if req.date_to:
         filters["date_to"] = req.date_to
         
+    # Fix F-3: Enforce Jurisdiction spatial filtering
+    if context.get("jurisdiction_district"):
+        filters["district"] = context.get("jurisdiction_district")
+        
     try:
         response = router_instance.route_and_query(req.question, target_dept, filters)
+        query_id_val = str(uuid.uuid4())
         
         # Log query transaction logs
         logger.info(f"Query executed successfully for {target_dept} (Type: {response['query_type']})")
+        
+        # Fix F-1: Permanent RTI Audit Trail
+        from api.db_models import QueryAuditLog
+        audit_log = QueryAuditLog(
+            query_id=query_id_val,
+            user_id=context.get("user_id", context.get("key_hash", "unknown")),
+            department=target_dept,
+            query_text=req.question,
+            query_type=response.get("query_type", "RAG"),
+            answer_text=response.get("answer", ""),
+            sources_cited=response.get("sources", [])
+        )
+        db.add(audit_log)
+        db.commit()
         
         # Track Prometheus metrics
         QUERY_CONFIDENCE.observe(response.get("confidence", 0.0))
@@ -488,14 +519,63 @@ def query_system(req: QueryRequest, context: dict = Depends(get_request_context)
             "sql_generated": response["sql_generated"],
             "db_row_count": response["db_row_count"],
             "confidence": response["confidence"],
-            "chunks_used": response["chunks_used"],
-            "query_id": str(uuid.uuid4()),
+            "query_id": query_id_val,
+            "chunks_used": response.get("chunks_used", 0),
             "timestamp": datetime.datetime.now().isoformat(),
             "query_language": response["query_language"]
         }
     except Exception as e:
-        logger.error(f"Server error during search translation query execution: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal error processing query: {str(e)}")
+        logger.error(f"Error executing query: {str(e)}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Query execution failed: {e}")
+
+@app.post("/query/feedback")
+def submit_query_feedback(req: FeedbackRequest, context: dict = Depends(get_request_context), db: Session = Depends(get_db)):
+    from api.db_models import QueryFeedback
+    feedback = QueryFeedback(
+        query_id=req.query_id,
+        user_id=context.get("user_id", context.get("key_hash", "unknown")),
+        is_correct=req.is_correct,
+        comments=req.comments
+    )
+    db.add(feedback)
+    db.commit()
+    return {"message": "Feedback submitted successfully."}
+
+# Fix F-8: Analytics Dashboard Endpoint
+@app.get("/b2b/analytics")
+def b2b_analytics(context: dict = Depends(get_request_context), db: Session = Depends(get_db)):
+    from sqlalchemy import func
+    from api.db_models import QueryAuditLog, User
+    
+    user_id = context.get("user_id")
+    if context.get("role") != "b2b_user":
+        raise HTTPException(status_code=403, detail="Analytics only available for B2B users.")
+        
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not user.organization_name:
+        raise HTTPException(status_code=404, detail="No organization associated with this user.")
+        
+    org_name = user.organization_name
+    
+    # Get total queries for org
+    org_users = db.query(User.id).filter(User.organization_name == org_name).all()
+    org_user_ids = [str(u[0]) for u in org_users]
+    
+    total_queries = db.query(func.count(QueryAuditLog.id)).filter(QueryAuditLog.user_id.in_(org_user_ids)).scalar()
+    
+    # Queries by department
+    dept_stats = db.query(
+        QueryAuditLog.department, 
+        func.count(QueryAuditLog.id)
+    ).filter(QueryAuditLog.user_id.in_(org_user_ids)).group_by(QueryAuditLog.department).all()
+    
+    return {
+        "organization": org_name,
+        "total_queries": total_queries,
+        "quota_used": user.api_quota_used,
+        "quota_limit": user.api_quota_limit,
+        "department_breakdown": [{"department": d, "count": c} for d, c in dept_stats]
+    }
 
 # ----------------- HEALTH ENDPOINT -----------------
 

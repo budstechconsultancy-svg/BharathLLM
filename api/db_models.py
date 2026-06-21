@@ -26,6 +26,7 @@ class User(Base):
     preferred_language = Column(String(10), default="en")
     organization_name = Column(String(255), nullable=True)
     subscription_tier = Column(String(50), default="free")
+    jurisdiction_district = Column(String(100), nullable=True) # Fix F-3: Hierarchical Access
     api_quota_limit = Column(Integer, default=100)
     api_quota_used = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
@@ -141,3 +142,26 @@ class LandRecord(Base):
     area_acres = Column(Float, nullable=True)
     land_type = Column(String(100), nullable=True)
     last_updated = Column(Date, nullable=True)
+
+# Fix F-1: Audit log for RTI compliance
+class QueryAuditLog(Base):
+    __tablename__ = "query_audit_logs"
+    id = Column(UUID_TYPE, primary_key=True, default=new_uuid)
+    query_id = Column(String(50), nullable=False, index=True)
+    user_id = Column(String(50), nullable=False, index=True)
+    department = Column(String(100), nullable=True)
+    query_text = Column(Text, nullable=False)
+    query_type = Column(String(50), nullable=True)
+    answer_text = Column(Text, nullable=False)
+    sources_cited = Column(JSON, nullable=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+# Fix F-5: Human in the loop feedback
+class QueryFeedback(Base):
+    __tablename__ = "query_feedback"
+    id = Column(UUID_TYPE, primary_key=True, default=new_uuid)
+    query_id = Column(String(50), nullable=False, index=True)
+    user_id = Column(String(50), nullable=False)
+    is_correct = Column(Boolean, nullable=False)
+    comments = Column(Text, nullable=True)
+    timestamp = Column(DateTime, default=datetime.datetime.utcnow)

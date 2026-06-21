@@ -81,7 +81,26 @@ class RAGEngine:
         slug = department.lower().replace(" ", "_").replace("&", "and")
         return f"tn_{slug}_docs"
 
+    def _transliterate_tanglish(self, text: str) -> str:
+        """Fix F-4: Tanglish to Tamil script transliteration."""
+        tanglish_map = {
+            "eppadi": "எப்படி",
+            "thittam": "திட்டம்",
+            "apply": "விண்ணப்பிக்க",
+            "panrathu": "செய்வது",
+            "enge": "எங்கே",
+            "yaar": "யார்"
+        }
+        words = text.split()
+        res = []
+        for w in words:
+            res.append(tanglish_map.get(w.lower(), w))
+        return " ".join(res)
+
     def retrieve(self, query: str, department: str, top_k: int = 5, filters: dict = None) -> list:
+        # Fix F-4: Transliterate Tanglish queries before embedding and detection
+        query = self._transliterate_tanglish(query)
+        
         # Detect query language
         try:
             query_lang = detect(query)
@@ -174,12 +193,13 @@ class RAGEngine:
         for chunk in retrieved_chunks:
             payload = chunk["payload"]
             original_file = payload.get("original_file", "Unknown File")
+            page_number = payload.get("page_number", 1) # Fix F-6: page number deep link
             doc_type = payload.get("doc_type", "GENERAL")
             department = payload.get("department", "Unknown Department")
             date = payload.get("date", "Unknown Date")
             text = payload.get("text", "")
             
-            header = f"[Source: {original_file} | {doc_type} | {department} | {date}]"
+            header = f"[Source: {original_file} (Page {page_number}) | {doc_type} | {department} | {date}]"
             context_parts.append(f"{header}\n{text}\n---\n")
             
         context = "\n".join(context_parts)
@@ -250,6 +270,7 @@ class RAGEngine:
             p = c["payload"]
             sources.append({
                 "filename": p.get("original_file", ""),
+                "page_number": p.get("page_number", 1),
                 "doc_type": p.get("doc_type", ""),
                 "department": p.get("department", ""),
                 "date": p.get("date", ""),

@@ -25,7 +25,8 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
             "user_id": str(user.id),
             "department": user.department,
             "role": user.role,
-            "state_code": user.state_code
+            "state_code": user.state_code,
+            "jurisdiction_district": getattr(user, "jurisdiction_district", None)
         }
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))

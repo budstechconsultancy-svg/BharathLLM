@@ -185,7 +185,19 @@ class QueryRouter:
             "query_language": "en"
         }
 
+    def _scrub_pii(self, text: str) -> str:
+        """Fix F-2: PII Redaction for Aadhar, PAN, Phone."""
+        import re
+        # Aadhar: 12 digits (with optional spaces/dashes)
+        text = re.sub(r'\b\d{4}[ -]?\d{4}[ -]?\d{4}\b', '[AADHAR_REDACTED]', text)
+        # PAN: 5 letters, 4 numbers, 1 letter
+        text = re.sub(r'\b[A-Z]{5}\d{4}[A-Z]\b', '[PAN_REDACTED]', text, flags=re.IGNORECASE)
+        # Phone: 10 digits starting with 6-9
+        text = re.sub(r'\b[6-9]\d{9}\b', '[PHONE_REDACTED]', text)
+        return text
+
     def route_and_query(self, question: str, department: str, filters: dict = None) -> dict:
+        question = self._scrub_pii(question)
         q_type = self.classify_query(question)
 
         # Fix 4.2: Check Redis cache before any engine call (skip cache for safety-blocked queries)
