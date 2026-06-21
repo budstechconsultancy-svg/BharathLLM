@@ -1,0 +1,41 @@
+{
+    "TN": {
+        "effective_from": "2024-04-01",
+        "revision_frequency": "annual",
+        "categories": {
+            "unskilled": {
+                "daily_rate": 450.0,
+                "monthly_rate": 11700.0,
+                "sectors": {
+                    "agriculture": {
+                        "daily": 400.0,
+                        "monthly": 10400.0
+                    },
+                    "construction": {
+                        "daily": 500.0,
+                        "monthly": 13000.0
+                    },
+                    "shops_commercial": {
+                        "daily": 450.0,
+                        "monthly": 11700.0
+                    }
+                }
+            },
+            "semi_skilled": {
+                "daily_rate": 500.0,
+                "monthly_rate": 13000.0,
+                "sectors": {}
+            },
+            "skilled": {
+                "daily_rate": 600.0,
+                "monthly_rate": 15600.0,
+                "sectors": {}
+            },
+            "highly_skilled": {
+                "daily_rate": 700.0,
+                "monthly_rate": 18200.0,
+                "sectors": {}
+            }
+        }
+    }
+}

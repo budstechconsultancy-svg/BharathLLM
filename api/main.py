@@ -20,7 +20,7 @@ from werkzeug.utils import secure_filename
 # Import pipeline, auth, and worker modules
 from pipeline.query_router import QueryRouter
 from api.db_models import Base, User, ApiKey, Session as DBSession
-from auth.auth_service import verify_password, create_access_token, create_api_key, change_password
+from auth.auth_service import verify_password, create_access_token, create_api_key, change_password, create_user
 from auth.dependencies import get_current_user, get_api_key_context, require_role, get_dept_scope
 from auth.rate_limiter import check_rate_limit
 from workers.tasks import ingest_pdf_task
@@ -69,6 +69,15 @@ class LoginRequest(BaseModel):
     employee_id_or_email: str
     password: str
 
+class SignupRequest(BaseModel):
+    email: EmailStr
+    password: str
+    full_name: str
+    organization_name: Optional[str] = None
+
+class SubscriptionUpgradeRequest(BaseModel):
+    tier: str  # e.g., "pro", "enterprise"
+
 class ApiKeyRequest(BaseModel):
     name: str
     rate_limit_per_min: Optional[int] = 100
@@ -96,10 +105,27 @@ async def lifespan(app: FastAPI):
     
     # 1. Initialize Database configuration
     try:
-        engine = create_engine(DATABASE_URL)
+        # Fix 4.1: Configurable connection pooling for production concurrency
+        pool_size = int(os.getenv("DB_POOL_SIZE", "20"))
+        max_overflow = int(os.getenv("DB_MAX_OVERFLOW", "30"))
+        pool_timeout = int(os.getenv("DB_POOL_TIMEOUT", "30"))
+        is_sqlite = DATABASE_URL.startswith("sqlite")
+
+        if is_sqlite:
+            # SQLite does not support connection pooling the same way
+            engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+        else:
+            engine = create_engine(
+                DATABASE_URL,
+                pool_size=pool_size,
+                max_overflow=max_overflow,
+                pool_timeout=pool_timeout,
+                pool_recycle=1800,    # Recycle connections every 30 minutes
+                pool_pre_ping=True    # Health-check connection before using
+            )
         SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
         Base.metadata.create_all(bind=engine)
-        logger.info("PostgreSQL Database engine fully connected.")
+        logger.info(f"Database engine connected. Pool size: {pool_size}, Max overflow: {max_overflow}.")
     except Exception as e:
         logger.error(f"PostgreSQL Connection failed on startup: {e}")
         
@@ -157,6 +183,20 @@ app.add_middleware(
     allow_headers=["*"]
 )
 
+# Fix 3.3: Global payload size middleware — reject requests > 20MB
+MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20MB
+
+@app.middleware("http")
+async def limit_upload_size(request, call_next):
+    content_length = request.headers.get("content-length")
+    if content_length and int(content_length) > MAX_UPLOAD_SIZE:
+        from fastapi.responses import JSONResponse
+        return JSONResponse(
+            status_code=413,
+            content={"detail": "Request too large. Maximum upload size is 20MB."}
+        )
+    return await call_next(request)
+
 # Instrument FastAPI app
 Instrumentator(
     should_group_status_codes=True,
@@ -184,6 +224,87 @@ def get_request_context(
     )
 
 # ----------------- AUTH ENDPOINTS -----------------
+
+@app.post("/auth/signup")
+def signup(req: SignupRequest, db: Session = Depends(get_db)):
+    try:
+        user = create_user(req.email, req.password, req.full_name, req.organization_name, db)
+        token = create_access_token(user.id, user.department, user.role)
+        
+        token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        expire_time = datetime.datetime.utcnow() + datetime.timedelta(hours=int(os.getenv("JWT_EXPIRY_HOURS", "8")))
+        new_session = DBSession(
+            user_id=user.id,
+            token_hash=token_hash,
+            expires_at=expire_time,
+            is_revoked=False
+        )
+        db.add(new_session)
+        db.commit()
+        
+        return {
+            "access_token": token,
+            "token_type": "bearer",
+            "user": {
+                "name": user.full_name,
+                "role": user.role,
+                "subscription_tier": user.subscription_tier
+            }
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.get("/auth/subscription")
+def get_subscription(context: dict = Depends(get_request_context), db: Session = Depends(get_db)):
+    user_id = context.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=403, detail="API keys cannot query subscriptions.")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    return {
+        "tier": user.subscription_tier,
+        "quota_limit": user.api_quota_limit,
+        "quota_used": user.api_quota_used,
+        "organization": user.organization_name
+    }
+
+@app.post("/auth/subscription/upgrade")
+def upgrade_subscription(req: SubscriptionUpgradeRequest, context: dict = Depends(get_request_context), db: Session = Depends(get_db)):
+    user_id = context.get("user_id")
+    if not user_id:
+        raise HTTPException(status_code=403, detail="API keys cannot upgrade subscriptions.")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found.")
+        
+    if req.tier == "pro":
+        user.subscription_tier = "pro"
+        user.api_quota_limit = 1000
+    elif req.tier == "enterprise":
+        user.subscription_tier = "enterprise"
+        user.api_quota_limit = 10000
+    else:
+        raise HTTPException(status_code=400, detail="Invalid tier. Choose 'pro' or 'enterprise'.")
+
+    # Fix 2.3: Revoke all old sessions so stale JWT claims are invalidated
+    db.query(DBSession).filter(DBSession.user_id == user_id).update({DBSession.is_revoked: True})
+    db.commit()
+
+    # Issue a fresh JWT with updated tier
+    new_token = create_access_token(user.id, user.department, user.role)
+    token_hash = hashlib.sha256(new_token.encode("utf-8")).hexdigest()
+    expire_time = datetime.datetime.utcnow() + datetime.timedelta(hours=int(os.getenv("JWT_EXPIRY_HOURS", "8")))
+    db.add(DBSession(user_id=user.id, token_hash=token_hash, expires_at=expire_time, is_revoked=False))
+    db.commit()
+
+    return {
+        "message": f"Successfully upgraded to {req.tier} tier.",
+        "new_limit": user.api_quota_limit,
+        "new_access_token": new_token,
+        "token_type": "bearer"
+    }
 
 @app.post("/auth/login")
 def login(req: LoginRequest, db: Session = Depends(get_db)):
@@ -277,7 +398,7 @@ def change_user_password(
 # ----------------- QUERY SYSTEM ENDPOINTS -----------------
 
 @app.post("/query")
-def query_system(req: QueryRequest, context: dict = Depends(get_request_context)):
+def query_system(req: QueryRequest, context: dict = Depends(get_request_context), db: Session = Depends(get_db)):
     from auth.rate_limiter import ROLE_RATE_LIMITS
     role = context.get("role")
     if role == "api_key":
@@ -289,6 +410,32 @@ def query_system(req: QueryRequest, context: dict = Depends(get_request_context)
     
     if not router_instance:
          raise HTTPException(status_code=503, detail="Document Intelligence Router engine offline. Check logs.")
+         
+    # Fix 2.1: Atomic quota enforcement — avoids race conditions under concurrent load
+    user_id = context.get("user_id")
+    if user_id:
+        rows_updated = db.query(User).filter(
+            User.id == user_id,
+            User.role == "b2b_user",
+            User.api_quota_used < User.api_quota_limit
+        ).update({User.api_quota_used: User.api_quota_used + 1})
+        db.commit()
+        if rows_updated == 0:
+            # Check if user exists and is a b2b_user to give the right error
+            chk = db.query(User).filter(User.id == user_id, User.role == "b2b_user").first()
+            if chk:
+                raise HTTPException(status_code=429, detail=f"Quota exceeded for '{chk.subscription_tier}' tier. Upgrade at /auth/subscription/upgrade.")
+
+    # Fix 2.2: Enforce API key department scoping
+    if context.get("role") == "api_key":
+        allowed_depts = context.get("allowed_departments")
+        if allowed_depts is not None:
+            requested_dept = (context.get("department") or "").lower()
+            if requested_dept not in [d.lower() for d in allowed_depts]:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"This API key is scoped to {allowed_depts}. Access to '{requested_dept}' is denied."
+                )
          
     # Enforce department scoping rules
     target_dept = context["department"]

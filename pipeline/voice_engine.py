@@ -57,6 +57,25 @@ class VoiceEngine:
         detected_language = "ta"
         language_probability = 0.98
         duration_sec = 4.5
+
+        # Fix 3.1a: Validate detected language against supported whitelist
+        if detected_language not in WHISPER_LANG_MAP:
+            return {
+                "success": False,
+                "error": "unsupported_language",
+                "message": f"Detected language '{detected_language}' is not supported. Supported: {list(WHISPER_LANG_MAP.keys())}",
+                "detected_language_probability": language_probability
+            }
+
+        # Fix 3.1b: Reject low-confidence transcriptions
+        if language_probability < 0.5:
+            log.warning(f"Low transcription confidence: {language_probability:.2f}. Rejecting.")
+            return {
+                "success": False,
+                "error": "low_confidence",
+                "message": "Could not understand the audio clearly. Please speak closer to the microphone or try typing your query instead.",
+                "detected_language_probability": language_probability
+            }
         
         return {
             "success": True,

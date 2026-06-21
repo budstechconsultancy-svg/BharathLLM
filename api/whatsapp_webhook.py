@@ -30,14 +30,14 @@ async def download_twilio_media(media_url: str) -> bytes:
         raise ValueError(f"Failed to download media: {response.status_code}")
 
 def handle_registration(sender: str, text: str) -> str:
-    # Example format: "Register Health 12345"
+    # Example format: "Register Finance 12345"
     parts = text.split()
     if len(parts) >= 3 and parts[0].lower() == "register":
-        dept = parts[1]
+        dept = parts[1].lower()  # "finance", "legal", "health"
         emp_id = parts[2]
-        MOCK_REDIS_SESSIONS[sender] = {"department": dept, "state_code": "TN", "emp_id": emp_id}
-        return f"Successfully registered {emp_id} under {dept} department. You can now send voice notes or photos."
-    return "You are not registered. Please reply with: Register [Department] [Emp_ID]"
+        MOCK_REDIS_SESSIONS[sender] = {"department": dept, "vertical": dept, "state_code": "TN", "emp_id": emp_id}
+        return f"Successfully registered {emp_id} under {dept.capitalize()} mode. You can now send queries, voice notes, or photos."
+    return "You are not registered. Please reply with: Register [Vertical] [Emp_ID] (e.g. Register Finance 12345)"
 
 @router.post("/api/whatsapp")
 async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
@@ -57,10 +57,28 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             twiml.message(reply)
             return str(twiml)
         else:
-            twiml.message("Please register first. Send: Register [Department] [Emp_ID]")
+            twiml.message("Please register first. Send: Register [Vertical] [Emp_ID] (e.g. Register Legal 12345)")
             return str(twiml)
             
     dept = session["department"]
+    
+    # Import router instance safely inside function
+    from api.main import router_instance
+    if not router_instance:
+        twiml.message("System is currently booting or AI router is offline. Please try again later.")
+        return str(twiml)
+
+    def build_citation_footer(result):
+        footer = ""
+        if result.get("cited_cases") and len(result["cited_cases"]) > 0:
+            footer += "\n\n⚖ Sources:\n"
+            for c in result["cited_cases"]:
+                footer += f"- {c['name']} ({c['year']}) {c['citation']}\n"
+        if result.get("circulars_cited") and len(result["circulars_cited"]) > 0:
+            footer += "\n\n📄 Sources:\n"
+            for c in result["circulars_cited"]:
+                footer += f"- Circular No. {c['number']}\n"
+        return footer
     
     try:
         if message_type == "audio" or num_media > 0 and form_data.get("MediaContentType0", "").startswith("audio/"):
@@ -71,10 +89,12 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             transcript = voice_engine.transcribe(audio_bytes, format="ogg")
             question = transcript["text"]
             
-            # Mock Query Router
-            answer = f"[Mock WhatsApp Voice Answer] Department: {dept}. Understood: {question}"
+            # Real Query Router
+            result = router_instance.route_and_query(question, dept)
+            answer = result["answer"]
+            footer = build_citation_footer(result)
             
-            twiml.message(f"🎤 {transcript['language_name']} detected:\n{question}\n\n🤖 Answer:\n{answer}")
+            twiml.message(f"🎤 {transcript['language_name']} detected:\n{question}\n\n🤖 Answer:\n{answer}{footer}")
             
         elif message_type == "image" or num_media > 0 and form_data.get("MediaContentType0", "").startswith("image/"):
             # Image Message
@@ -89,9 +109,11 @@ async def whatsapp_webhook(request: Request, background_tasks: BackgroundTasks):
             
         else:
             # Text Message
-            # Mock Query Router
-            answer = f"[Mock WhatsApp Text Answer] Department: {dept}. You asked: {body}"
-            twiml.message(answer)
+            result = router_instance.route_and_query(body, dept)
+            answer = result["answer"]
+            footer = build_citation_footer(result)
+            
+            twiml.message(f"🤖 {answer}{footer}")
             
     except Exception as e:
         log.error(f"WhatsApp Error: {e}")

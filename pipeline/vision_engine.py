@@ -45,13 +45,24 @@ class VisionEngine:
         # data = pytesseract.image_to_data(image, lang="tam+eng", config="--oem 3 --psm 6", output_type=pytesseract.Output.DICT)
         
         mock_text = "TAMIL NADU GOVERNMENT GAZETTE\nGOVERNMENT ORDER NO. 45\nEligible beneficiaries for CMHIS..."
+
+        # Fix 3.2: Low-quality OCR detection
+        image_quality_warning = None
+        if len(mock_text.strip()) < 20:
+            image_quality_warning = (
+                "⚠️ The image quality is low or the text is unclear. "
+                "The following is a best-effort extraction. "
+                "Please upload a clearer, higher-resolution image for accurate results."
+            )
+            log.warning("OCR extracted fewer than 20 characters — likely poor image quality.")
         
         return {
             "text": mock_text,
             "avg_confidence": 92.5,
             "scripts_detected": {"Latin": 0.8, "Tamil": 0.2},
             "word_count": len(mock_text.split()),
-            "method": "tesseract"
+            "method": "tesseract",
+            "image_quality_warning": image_quality_warning
         }
 
     def understand_image(self, image: Image, question: str, language: str = "en") -> dict:

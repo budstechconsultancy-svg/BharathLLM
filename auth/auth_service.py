@@ -102,3 +102,27 @@ def change_password(user_id, current_password, new_password, db_session) -> bool
     db_session.query(DBSession).filter(DBSession.user_id == user_id).update({DBSession.is_revoked: True})
     db_session.commit()
     return True
+
+def create_user(email: str, password: str, full_name: str, organization_name: str, db: Session) -> User:
+    # Check if user exists
+    if db.query(User).filter(User.email == email).first():
+        raise ValueError("User with this email already exists.")
+        
+    hashed_pw = hash_password(password)
+    
+    # Create the user with default "free" subscription tier and "b2b_user" role
+    new_user = User(
+        email=email,
+        hashed_password=hashed_pw,
+        full_name=full_name,
+        organization_name=organization_name,
+        role="b2b_user",
+        subscription_tier="free",
+        api_quota_limit=100,
+        api_quota_used=0,
+        is_active=True
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    return new_user

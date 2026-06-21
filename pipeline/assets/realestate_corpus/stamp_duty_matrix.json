@@ -1,0 +1,34 @@
+{
+    "TN": {
+        "residential_sale": {
+            "male_buyer": "7%",
+            "female_buyer": "5%",
+            "joint_female_first": "6%",
+            "registration_fee": "4%",
+            "maximum_registration_fee": null,
+            "concessions": [
+                {
+                    "type": "affordable_housing",
+                    "threshold": "\u20b950L",
+                    "rate": "4%"
+                }
+            ]
+        },
+        "commercial_sale": {
+            "rate": "7%",
+            "registration_fee": "4%"
+        },
+        "rental_1_year": {
+            "rate": "1% of total rent"
+        },
+        "gift_deed_family": {
+            "rate": "1%"
+        },
+        "partition_deed": {
+            "rate": "1% per share"
+        },
+        "power_of_attorney": {
+            "rate": "\u20b9100 to \u20b9500 fixed"
+        }
+    }
+}

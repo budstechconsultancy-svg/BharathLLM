@@ -279,6 +279,142 @@ register(Tool(
     requires_approval=False, category="finance", execute=lambda *a, **k: "Mock budget impact"
 ))
 
+# --- HEALTHCARE TOOLS ---
+register(Tool(
+    name="get_drug_info",
+    description="Get complete information about any drug available in India — indications, contraindications, dosage, schedule, CDSCO status, CGHS reimbursability, and any active alerts or bans.",
+    parameters={"type": "object", "properties": {"drug_name": {"type": "string"}, "context": {"type": "string"}}, "required": ["drug_name"]},
+    requires_approval=False, category="healthcare", execute=lambda *a, **k: "Mock drug info"
+))
+
+register(Tool(
+    name="check_drug_interactions",
+    description="Check interactions between multiple drugs. Returns severity (MAJOR/MODERATE/MINOR) and clinical recommendation.",
+    parameters={"type": "object", "properties": {"drugs": {"type": "array", "items": {"type": "string"}}}, "required": ["drugs"]},
+    requires_approval=False, category="healthcare", execute=lambda *a, **k: "Mock drug interactions"
+))
+
+register(Tool(
+    name="nabh_compliance_check",
+    description="Check a hospital department's compliance against NABH accreditation standards. Returns gap analysis and corrective action plan.",
+    parameters={"type": "object", "properties": {"department": {"type": "string"}, "current_practices": {"type": "object"}}, "required": ["department", "current_practices"]},
+    requires_approval=False, category="healthcare", execute=lambda *a, **k: "Mock nabh compliance"
+))
+
+register(Tool(
+    name="get_icd_code",
+    description="Get ICD-10 and ICD-11 codes for any clinical description. Also returns CGHS procedure code and Ayushman Bharat package.",
+    parameters={"type": "object", "properties": {"clinical_description": {"type": "string"}, "language": {"type": "string"}}, "required": ["clinical_description", "language"]},
+    requires_approval=False, category="healthcare", execute=lambda *a, **k: "Mock icd code"
+))
+
+register(Tool(
+    name="check_health_scheme",
+    description="Check patient eligibility for Ayushman Bharat, CMHIS, or any state health insurance scheme.",
+    parameters={"type": "object", "properties": {"scheme_name": {"type": "string"}, "patient_details": {"type": "object"}}, "required": ["scheme_name", "patient_details"]},
+    requires_approval=False, category="healthcare", execute=lambda *a, **k: "Mock health scheme"
+))
+
+register(Tool(
+    name="check_cdsco_alerts",
+    description="Check for active CDSCO drug bans, recalls, or quality alerts for any drug or manufacturer.",
+    parameters={"type": "object", "properties": {"drug_name": {"type": "string"}, "manufacturer": {"type": "string"}}, "required": []},
+    requires_approval=False, category="healthcare", execute=lambda *a, **k: "Mock cdsco alerts"
+))
+
+# --- REAL ESTATE TOOLS ---
+register(Tool(
+    name="calculate_stamp_duty",
+    description="Calculate stamp duty and registration charges for any property transaction in any Indian state.",
+    parameters={"type": "object", "properties": {"state": {"type": "string"}, "property_value": {"type": "number"}, "property_type": {"type": "string"}, "buyer_gender": {"type": "string"}, "special_category": {"type": "string"}}, "required": ["state", "property_value", "property_type", "buyer_gender"]},
+    requires_approval=False, category="realestate", execute=lambda *a, **k: "Mock stamp duty"
+))
+
+register(Tool(
+    name="check_rera_status",
+    description="Verify if a real estate project is RERA registered and compliant. Check registration details and violations.",
+    parameters={"type": "object", "properties": {"project_name": {"type": "string"}, "state": {"type": "string"}, "rera_id": {"type": "string"}}, "required": ["project_name", "state"]},
+    requires_approval=False, category="realestate", execute=lambda *a, **k: "Mock rera status"
+))
+
+register(Tool(
+    name="explain_land_record",
+    description="Explain any Indian state land record document — what it proves, how to get it, how to read it.",
+    parameters={"type": "object", "properties": {"state": {"type": "string"}, "record_type": {"type": "string"}, "language": {"type": "string"}}, "required": ["state", "record_type", "language"]},
+    requires_approval=False, category="realestate", execute=lambda *a, **k: "Mock land record"
+))
+
+register(Tool(
+    name="review_property_agreement",
+    description="Review a sale agreement or rental agreement for missing clauses, unfair terms, and legal risks.",
+    parameters={"type": "object", "properties": {"agreement_text": {"type": "string"}, "client_role": {"type": "string"}}, "required": ["agreement_text", "client_role"]},
+    requires_approval=False, category="realestate", execute=lambda *a, **k: "Mock review agreement"
+))
+
+register(Tool(
+    name="draft_property_agreement",
+    description="Draft a sale agreement, rental agreement, gift deed, or joint development agreement.",
+    parameters={"type": "object", "properties": {"agreement_type": {"type": "string"}, "parties": {"type": "object"}, "property_details": {"type": "object"}, "terms": {"type": "object"}, "state": {"type": "string"}, "language": {"type": "string"}}, "required": ["agreement_type", "parties", "property_details", "terms", "state", "language"]},
+    requires_approval=False, category="realestate", execute=lambda *a, **k: "Mock draft property agreement"
+))
+
+register(Tool(
+    name="rera_complaint_guide",
+    description="Guide on filing an RERA complaint — procedure, documents, applicable sections, and draft complaint text.",
+    parameters={"type": "object", "properties": {"state": {"type": "string"}, "issue_type": {"type": "string"}, "complaint_details": {"type": "object"}}, "required": ["state", "issue_type", "complaint_details"]},
+    requires_approval=False, category="realestate", execute=lambda *a, **k: "Mock rera complaint guide"
+))
+
+# --- HR / LABOUR LAW TOOLS ---
+register(Tool(
+    name="get_minimum_wages",
+    description="Get current minimum wages for any state, category, and sector in India.",
+    parameters={"type": "object", "properties": {"state": {"type": "string"}, "category": {"type": "string"}, "sector": {"type": "string"}}, "required": ["state", "category"]},
+    requires_approval=False, category="hr", execute=lambda *a, **k: "Mock minimum wages"
+))
+
+register(Tool(
+    name="calculate_epf_esic",
+    description="Calculate EPF and ESIC contributions for any salary. Shows employee and employer portions separately.",
+    parameters={"type": "object", "properties": {"gross_salary": {"type": "number"}, "employee_type": {"type": "string"}, "state": {"type": "string"}}, "required": ["gross_salary", "employee_type", "state"]},
+    requires_approval=False, category="hr", execute=lambda *a, **k: "Mock epf esic calc"
+))
+
+register(Tool(
+    name="calculate_gratuity",
+    description="Calculate gratuity amount under Payment of Gratuity Act.",
+    parameters={"type": "object", "properties": {"years_of_service": {"type": "number"}, "last_drawn_basic_da": {"type": "number"}, "organisation_type": {"type": "string"}}, "required": ["years_of_service", "last_drawn_basic_da", "organisation_type"]},
+    requires_approval=False, category="hr", execute=lambda *a, **k: "Mock gratuity calc"
+))
+
+register(Tool(
+    name="check_posh_compliance",
+    description="Assess company's POSH Act compliance status — ICC constitution, policy display, training, annual report.",
+    parameters={"type": "object", "properties": {"company_details": {"type": "object"}}, "required": ["company_details"]},
+    requires_approval=False, category="hr", execute=lambda *a, **k: "Mock posh compliance"
+))
+
+register(Tool(
+    name="map_labour_code",
+    description="Map any old Indian labour law section to the new Labour Code equivalent and explain what changed.",
+    parameters={"type": "object", "properties": {"old_act": {"type": "string"}, "old_section": {"type": "string"}}, "required": ["old_act", "old_section"]},
+    requires_approval=False, category="hr", execute=lambda *a, **k: "Mock labour code map"
+))
+
+register(Tool(
+    name="get_termination_procedure",
+    description="Get the correct termination procedure under Indian labour law based on company size, reason, and state.",
+    parameters={"type": "object", "properties": {"company_size": {"type": "integer"}, "employee_type": {"type": "string"}, "reason": {"type": "string"}, "state": {"type": "string"}}, "required": ["company_size", "employee_type", "reason", "state"]},
+    requires_approval=False, category="hr", execute=lambda *a, **k: "Mock termination procedure"
+))
+
+register(Tool(
+    name="draft_hr_document",
+    description="Draft any HR document — offer letter, appointment letter, warning letter, termination letter, POSH notice.",
+    parameters={"type": "object", "properties": {"doc_type": {"type": "string"}, "company_details": {"type": "object"}, "employee_details": {"type": "object"}, "language": {"type": "string"}}, "required": ["doc_type", "company_details", "employee_details", "language"]},
+    requires_approval=False, category="hr", execute=lambda *a, **k: "Mock draft hr document"
+))
+
 def get_tool(name: str) -> Tool:
     return TOOL_REGISTRY.get(name)
 

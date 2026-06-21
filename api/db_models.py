@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Integer, Boolean, Float, DateTime, ForeignKey, Text, Numeric, Date
+from sqlalchemy import Column, String, Integer, Boolean, Float, DateTime, ForeignKey, Text, Numeric, Date, JSON
 from sqlalchemy.orm import DeclarativeBase
 import uuid
 import datetime
@@ -15,7 +15,7 @@ class Base(DeclarativeBase):
 class User(Base):
     __tablename__ = "users"
     id = Column(UUID_TYPE, primary_key=True, default=new_uuid)
-    employee_id = Column(String(50), unique=True, nullable=False)
+    employee_id = Column(String(50), unique=True, nullable=True) # Nullable for SaaS users
     email = Column(String(255), unique=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
@@ -24,6 +24,10 @@ class User(Base):
     state_code = Column(String(5), nullable=True)    # e.g. "TN", "MH"
     role = Column(String(20), nullable=False)
     preferred_language = Column(String(10), default="en")
+    organization_name = Column(String(255), nullable=True)
+    subscription_tier = Column(String(50), default="free")
+    api_quota_limit = Column(Integer, default=100)
+    api_quota_used = Column(Integer, default=0)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)
     last_login = Column(DateTime, nullable=True)
@@ -38,6 +42,7 @@ class ApiKey(Base):
     state_code = Column(String(5), nullable=True)
     created_by_user_id = Column(UUID_TYPE, ForeignKey("users.id"))
     rate_limit_per_min = Column(Integer, default=100)
+    allowed_departments = Column(JSON, nullable=True)  # Fix 2.2: e.g. ["hr", "finance"] or null for all
     is_active = Column(Boolean, default=True)
     expires_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, nullable=False)

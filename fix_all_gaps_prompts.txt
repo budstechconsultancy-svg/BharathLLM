@@ -1,0 +1,265 @@
+================================================================================
+  BHARATLLM: ANTIGRAVITY FIX PROMPTS — ALL GAPS & ISSUES
+  Version: 1.0 | Generated: 2026-06-21
+  Purpose: Feed each numbered prompt to Antigravity (one at a time) to 
+           systematically resolve every identified architectural gap.
+================================================================================
+
+================================================================================
+  SECTION 1: DOMAIN ENGINE GAPS
+================================================================================
+
+--------------------------------------------------------------------------------
+FIX PROMPT 1.1 — Cross-Domain Query Merging
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, update the QueryRouter in pipeline/query_router.py
+to handle cross-domain queries. When a query spans multiple verticals (e.g.,
+HR + Legal + Finance), the router should:
+  1. Detect cross-domain intent using keyword matching or an NLP classifier.
+  2. Run the query through ALL relevant engines in parallel.
+  3. Merge the results in a structured "unified answer" format with clear 
+     section headers for each domain (e.g., "## HR Answer", "## Legal Answer").
+  4. Assign a confidence score to each domain's answer.
+Test: python test_engines.py and add a cross-domain test query like:
+      "What are my EPF rights if my company is under NCLT insolvency?"
+
+--------------------------------------------------------------------------------
+FIX PROMPT 1.2 — Real Estate/RERA Stale Data Fallback
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, update pipeline/realestate_engine.py to:
+  1. Add a `data_freshness_check()` method that reads a `last_indexed_at` 
+     timestamp from the Qdrant collection metadata.
+  2. If the vector data is older than 30 days, inject a disclaimer in the 
+     answer: "⚠️ Data may be stale. Last updated: {date}. Please verify on 
+     the official RERA portal."
+  3. Add a `RERA_PORTAL_URLS` dict mapping state codes to their official RERA 
+     portals (e.g., MH -> maharera.mahaonline.gov.in) so the disclaimer 
+     includes a direct official link.
+Test: Write a test in test_engines.py that mocks an old timestamp and verifies 
+      the disclaimer appears in the answer.
+
+--------------------------------------------------------------------------------
+FIX PROMPT 1.3 — Healthcare Safety Guardrail
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, update pipeline/healthcare_engine.py to add a 
+medical safety guardrail:
+  1. Create a DANGEROUS_MEDICAL_KEYWORDS list (e.g., "dosage", "home remedy", 
+     "treat cancer", "self medicate", "symptoms of", etc.).
+  2. At the start of the `query()` method, scan the user's question against 
+     this list.
+  3. If triggered, do NOT send the query to the LLM. Instead, return a 
+     safe, hardcoded response:
+     "⚕️ BharatLLM cannot provide personal medical advice. For emergencies, 
+      call 112. For health scheme eligibility (PMJAY, CMHIS, etc.), please 
+      rephrase your question."
+  4. Log all flagged queries to the logs/ directory for audit.
+Test: Query the healthcare engine with "how to treat diabetes at home" and 
+      confirm it returns the safe response without calling the LLM.
+
+================================================================================
+  SECTION 2: B2B SAAS AUTHENTICATION & SUBSCRIPTION GAPS
+================================================================================
+
+--------------------------------------------------------------------------------
+FIX PROMPT 2.1 — Quota Race Condition Fix
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, fix the api_quota_used race condition in api/main.py.
+The current implementation reads quota, checks, then writes — which is unsafe 
+under concurrent load.
+  1. Replace the current check-then-increment logic in the /query endpoint with 
+     an atomic SQLAlchemy UPDATE using:
+        db.query(User).filter(
+            User.id == user_id,
+            User.role == "b2b_user",
+            User.api_quota_used < User.api_quota_limit
+        ).update({User.api_quota_used: User.api_quota_used + 1})
+        db.commit()
+  2. If the UPDATE affects 0 rows, it means the user is at their limit — raise 
+     a 429 HTTPException.
+  3. This makes the operation atomic at the DB level, preventing bypass.
+Test: Write a concurrent test using Python's threading module that fires 
+      200 parallel requests and verifies exactly 100 succeed for a free user.
+
+--------------------------------------------------------------------------------
+FIX PROMPT 2.2 — API Key Department Scoping
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, update the API key system to support granular 
+department scoping for B2B integrations (e.g., Zoho/Tally only accessing HR):
+  1. In api/db_models.py, add a `allowed_departments` JSON column to the ApiKey 
+     model (e.g., '["hr", "finance"]'). Default to None (all departments).
+  2. In auth/dependencies.py, update get_api_key_context() to read 
+     `allowed_departments` from the ApiKey record and store it in the context.
+  3. In the /query endpoint in api/main.py, if context["allowed_departments"] 
+     is not None, validate that the requested department is in the allowed list. 
+     If not, raise a 403 Forbidden.
+  4. Add a new API endpoint POST /api-keys/{key_id}/scope to let users update 
+     their key's department scope.
+Test: Create an API key scoped to "hr" and verify it gets 403 when querying 
+      about "legal" topics.
+
+--------------------------------------------------------------------------------
+FIX PROMPT 2.3 — JWT Subscription Tier Refresh
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, fix the stale JWT claims issue after a subscription 
+upgrade:
+  1. In api/main.py, update the POST /auth/subscription/upgrade endpoint to 
+     revoke ALL existing sessions for the user after upgrading. Use:
+        db.query(DBSession).filter(DBSession.user_id == user_id).update(
+            {DBSession.is_revoked: True}
+        )
+  2. Immediately issue a NEW JWT token with the updated tier claims and return 
+     it in the upgrade response as "new_access_token".
+  3. Update the frontend in frontend/src/portals/apidev/DeveloperPortal.jsx 
+     (or App.jsx) to listen for "new_access_token" in the upgrade response and 
+     automatically update localStorage("token") without requiring logout.
+Test: Login, note the token, upgrade to PRO, verify the old token is rejected 
+      and the new token works.
+
+================================================================================
+  SECTION 3: MULTIMODAL PIPELINE GAPS
+================================================================================
+
+--------------------------------------------------------------------------------
+FIX PROMPT 3.1 — Voice Engine: Low-Confidence Fallback
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, update pipeline/voice_engine.py to handle 
+low-confidence transcriptions:
+  1. In the transcribe() method, check `language_probability` after inference.
+  2. If `language_probability` < 0.5, do NOT proceed to the LLM. Instead, 
+     return a structured error response:
+     {
+       "success": False,
+       "error": "low_confidence",
+       "message": "Could not understand the audio clearly. Please speak closer 
+                   to the mic or try typing your query.",
+       "detected_language_probability": <value>
+     }
+  3. In api/multimodal_routes.py, handle this "success": False response by 
+     returning a user-friendly 400 response instead of a 500 server error.
+  4. Also add a SUPPORTED_LANGUAGES whitelist check — if the detected language 
+     is not in WHISPER_LANG_MAP, return a clear "Unsupported language" error.
+Test: Mock a transcription with language_probability=0.3 and verify the 
+      endpoint returns a 400 with the helpful message.
+
+--------------------------------------------------------------------------------
+FIX PROMPT 3.2 — Vision Engine: Low-Quality OCR Disclaimer
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, update pipeline/vision_engine.py to handle 
+poor-quality image inputs:
+  1. After extracting text from an image, calculate a quality_score — a simple 
+     heuristic: len(extracted_text.strip()) / image_resolution_pixels.
+  2. If the extracted text is less than 20 characters (likely failed OCR), 
+     add a disclaimer to the answer:
+     "⚠️ The image quality is low. The following is a best-effort extraction. 
+      Please upload a clearer image for accurate results."
+  3. Never return a confident medical/legal answer if the OCR confidence is low.
+  4. In api/multimodal_routes.py, surface the `image_quality_warning` field 
+     in the JSON response so the frontend ChatPortal.jsx can display a 
+     yellow warning banner below the answer.
+Test: Send a 1x1 pixel PNG to /vision/extract and verify the disclaimer is 
+      included in the response.
+
+--------------------------------------------------------------------------------
+FIX PROMPT 3.3 — Payload Size Middleware
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, add payload size restrictions to protect the 
+multimodal endpoints:
+  1. In api/main.py, add a FastAPI middleware using @app.middleware("http") 
+     that reads the Content-Length header.
+  2. If Content-Length > 20MB (20 * 1024 * 1024 bytes), immediately return 
+     a 413 Request Entity Too Large JSON response:
+     {"detail": "File too large. Maximum upload size is 20MB."}
+  3. Additionally, in api/multimodal_routes.py, inside the audio and image 
+     handlers, check len(audio_bytes) and len(image_bytes) after reading. If 
+     either exceeds 20MB, raise a 413 HTTPException.
+  4. Update the frontend ChatPortal.jsx image upload handler to validate 
+     file size client-side (e.g., > 20MB shows a red error) before even 
+     making the API call.
+Test: Upload a mock 25MB payload and verify a 413 is returned before hitting 
+      any AI engine.
+
+================================================================================
+  SECTION 4: ARCHITECTURE & SCALABILITY GAPS
+================================================================================
+
+--------------------------------------------------------------------------------
+FIX PROMPT 4.1 — Database Connection Pooling
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, configure SQLAlchemy connection pooling to handle 
+high-concurrency production loads (e.g., 10,000 Tally users):
+  1. In api/main.py, update the create_engine() call to include pooling params:
+        engine = create_engine(
+            DATABASE_URL,
+            pool_size=20,           # Maintain 20 persistent connections
+            max_overflow=30,        # Allow 30 extra connections on burst
+            pool_timeout=30,        # Wait max 30s before raising an error
+            pool_recycle=1800,      # Recycle connections every 30 minutes
+            pool_pre_ping=True      # Health-check before using a connection
+        )
+  2. In .env.example, add:
+        DB_POOL_SIZE=20
+        DB_MAX_OVERFLOW=30
+        DB_POOL_TIMEOUT=30
+  3. Update api/main.py to read these values from environment variables.
+  4. Add a GET /health/db endpoint that returns the pool status: 
+     checked_in, checked_out, overflow, invalid.
+Test: Run a concurrent test with 50 parallel DB sessions and verify no 
+      "connection timeout" errors appear in logs/.
+
+--------------------------------------------------------------------------------
+FIX PROMPT 4.2 — LLM Response Caching with Redis
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, add a Redis caching layer for repeated LLM queries 
+to reduce GPU inference load and improve latency:
+  1. Install redis (add to pyproject.toml): pip install redis
+  2. Create a new file pipeline/cache_layer.py with a QueryCache class:
+       - __init__: connect to Redis using REDIS_URL from .env
+       - get(question, department): return cached answer if hit (TTL: 1 hour)
+       - set(question, department, answer): cache the LLM response
+       - cache_key: SHA256 hash of (question.lower().strip() + department)
+  3. In pipeline/query_router.py, before calling the LLM in route_and_query():
+       - Check cache.get(question, department) first.
+       - If cache hit, return immediately with {"answer": cached, "cache_hit": True}
+       - If cache miss, call the LLM, then call cache.set() with the result.
+  4. In .env.example, add:
+        REDIS_URL=redis://localhost:6379/0
+        CACHE_TTL_SECONDS=3600
+  5. Add a GET /health/cache endpoint that returns Redis ping status.
+Test: Run the same query twice and verify the second response has "cache_hit": True 
+      and response time < 50ms.
+
+================================================================================
+  BONUS: FRONTEND SIGNUP PAGE
+================================================================================
+
+--------------------------------------------------------------------------------
+FIX PROMPT B.1 — B2B Signup Page on Frontend
+--------------------------------------------------------------------------------
+In BharatLLM at c:\TNLLM, add a Signup tab to the login page in 
+frontend/src/App.jsx so B2B users (Zoho, Tally, startups) can self-register:
+  1. Add a "Sign Up" tab toggle next to the existing login form.
+  2. The signup form should have fields for:
+     - Full Name
+     - Organization Name
+     - Work Email
+     - Password / Confirm Password
+  3. On submit, call POST /auth/signup with the form data.
+  4. On success, auto-login the user (store the returned JWT in localStorage) 
+     and redirect them to the Chat portal.
+  5. Show clear validation errors inline (e.g., "Email already registered").
+  6. Add a subscription plan selector (Free / Pro / Enterprise) with a 
+     pricing badge so users understand their quota limits upfront.
+Test: Manually sign up a new user via the UI, verify the JWT is stored and 
+      the chat portal loads with the correct "free" tier badge.
+
+================================================================================
+  HOW TO USE THESE PROMPTS
+================================================================================
+  1. Run one FIX PROMPT at a time — copy the prompt text and submit it as your 
+     next message to Antigravity (the AI pair programmer).
+  2. After each fix, run the suggested test before moving to the next prompt.
+  3. Commit to GitHub after each major fix section:
+         git add . && git commit -m "fix(section-N): <short description>"
+  4. Total estimated fixes: 10 code changes + 1 UI addition.
+  5. After all fixes, run the full test suite: python -m pytest tests/ -v
+================================================================================

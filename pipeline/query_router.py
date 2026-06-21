@@ -8,6 +8,10 @@ from .sql_engine import SQLEngine
 from .web_search_engine import WebSearchEngine
 from .legal_engine import LegalEngine
 from .finance_engine import FinanceEngine
+from .healthcare_engine import HealthcareEngine
+from .realestate_engine import RealEstateEngine
+from .hr_engine import HREngine
+from .cache_layer import get_cache
 
 logger = logging.getLogger("QueryRouter")
 
@@ -28,6 +32,37 @@ MIXED_SIGNALS = [
     r"\band\s+also\b", r"\balong\s+with\b", r"\bas\s+well\s+as\b"
 ]
 
+HEALTHCARE_SIGNALS = [
+  "drug", "medicine", "tablet", "injection", "dosage", "side effect",
+  "nabh", "cghs", "hospital", "doctor", "clinical", "diagnosis",
+  "icd", "cpt", "drg", "cdsco", "pharmacopoeia", "contraindication",
+  "drug interaction", "ayushman", "cmhis", "health insurance claim",
+  "prescription", "schedule h", "banned drug", "recall",
+  "மருந்து", "மருத்துவர்", "மருத்துவமனை", "நோய்", "சிகிச்சை",
+  "दवा", "दवाई", "डॉक्टर", "अस्पताल", "इलाज", "बीमारी"
+]
+
+REALESTATE_SIGNALS = [
+  "rera", "property", "flat", "apartment", "land", "plot", "house",
+  "stamp duty", "registration", "patta", "chitta", "7/12", "rtc",
+  "builder", "developer", "sale deed", "sale agreement", "lease",
+  "rental agreement", "mortgage", "encumbrance", "khata", "khasra",
+  "dtcp", "cmda", "bda", "fsi", "far", "occupancy certificate",
+  "completion certificate", "title search",
+  "பட்டா", "சிட்டா", "அடங்கல்", "சொத்து", "இடம்", "வீடு",
+  "संपत्ति", "जमीन", "मकान", "रजिस्ट्री", "स्टांप ड्यूटी"
+]
+
+HR_SIGNALS = [
+  "minimum wages", "epf", "esic", "pf", "gratuity", "bonus",
+  "labour code", "labour law", "employment", "termination", "retrenchment",
+  "posh", "sexual harassment", "icc", "maternity", "factory act",
+  "standing orders", "trade union", "appointment letter", "relieving letter",
+  "offer letter", "salary", "increment", "warning letter",
+  "குறைந்தபட்ச ஊதியம்", "பணிநீக்கம்", "தொழிலாளர்", "ஊழியர்",
+  "न्यूनतम वेतन", "नियुक्ति", "बर्खास्तगी", "श्रम कानून", "पीएफ"
+]
+
 class QueryRouter:
     def __init__(self, model_path=None):
         logger.info("Initializing QueryRouter Engines...")
@@ -36,7 +71,26 @@ class QueryRouter:
         self.web_engine = WebSearchEngine()
         self.legal_engine = LegalEngine()
         self.finance_engine = FinanceEngine()
+        self.healthcare_engine = HealthcareEngine()
+        self.realestate_engine = RealEstateEngine()
+        self.hr_engine = HREngine()
+        self.cache = get_cache()  # Fix 4.2: Redis response cache
         logger.info("Engines fully attached.")
+
+    LEGAL_SIGNALS = [
+      "section", "act", "judgement", "court", "case", "bail", "fir",
+      "petition", "plaint", "notice", "limitation", "advocate", "lawyer",
+      "ipc", "bns", "crpc", "bnss", "supreme court", "high court",
+      "contract", "divorce", "succession", "will", "deed", "agreement",
+      "draft legal", "legal notice", "writ", "habeas corpus"
+    ]
+    FINANCE_SIGNALS = [
+      "gst", "income tax", "tds", "cbdt", "gstn", "circular", "rbi",
+      "sebi", "return", "filing", "compliance", "advance tax", "deduction",
+      "80c", "gstr", "itr", "demand", "assessment", "appeal",
+      "itat", "ca", "audit", "balance sheet", "p&l", "fema", "transfer pricing",
+      "customs", "ibc", "insolvency", "nbfc", "irda"
+    ]
 
     def classify_query(self, question: str) -> str:
         q_lower = question.lower()
@@ -44,30 +98,35 @@ class QueryRouter:
         has_rag = any(re.search(sig, q_lower) for sig in RAG_SIGNALS)
         has_mixed = any(re.search(sig, q_lower) for sig in MIXED_SIGNALS)
         
-        LEGAL_SIGNALS = [
-          "section", "act", "judgement", "court", "case", "bail", "fir",
-          "petition", "plaint", "notice", "limitation", "advocate", "lawyer",
-          "ipc", "bns", "crpc", "bnss", "supreme court", "high court",
-          "contract", "divorce", "succession", "will", "deed", "agreement",
-          "draft legal", "legal notice", "writ", "habeas corpus"
-        ]
-        FINANCE_SIGNALS = [
-          "gst", "income tax", "tds", "cbdt", "gstn", "circular", "rbi",
-          "sebi", "return", "filing", "compliance", "advance tax", "deduction",
-          "80c", "gstr", "itr", "demand", "assessment", "appeal",
-          "itat", "ca", "audit", "balance sheet", "p&l", "fema", "transfer pricing",
-          "customs", "ibc", "insolvency", "nbfc", "irda"
-        ]
+        has_legal = any(s in q_lower for s in self.LEGAL_SIGNALS)
+        has_finance = any(s in q_lower for s in self.FINANCE_SIGNALS)
+        has_health = any(s in q_lower for s in HEALTHCARE_SIGNALS)
+        has_re = any(s in q_lower for s in REALESTATE_SIGNALS)
+        has_hr = any(s in q_lower for s in HR_SIGNALS)
         
-        has_legal = any(s in q_lower for s in LEGAL_SIGNALS)
-        has_finance = any(s in q_lower for s in FINANCE_SIGNALS)
         has_year = bool(re.search(r"\b\d{4}\b", q_lower))
         if has_year and has_sql:
             has_sql = True
+
+        # Detect cross-domain queries (multiple verticals triggered)
+        active_verticals = [
+            v for v, flag in [
+                ("LEGAL", has_legal), ("FINANCE", has_finance),
+                ("HEALTHCARE", has_health), ("REALESTATE", has_re), ("HR", has_hr)
+            ] if flag
+        ]
             
-        logger.info(f"Query classification signals matched: SQL={has_sql}, RAG={has_rag}, LEGAL={has_legal}, FINANCE={has_finance}")
+        logger.info(f"Query classification signals matched: SQL={has_sql}, RAG={has_rag}, LEGAL={has_legal}, FINANCE={has_finance}, HEALTHCARE={has_health}, REALESTATE={has_re}, HR={has_hr}")
         
-        if has_legal and not has_finance:
+        if len(active_verticals) >= 2:
+            return f"CROSS_DOMAIN:{':'.join(active_verticals)}"
+        elif has_health:
+            return "HEALTHCARE"
+        elif has_re:
+            return "REALESTATE"
+        elif has_hr:
+            return "HR"
+        elif has_legal and not has_finance:
             return "LEGAL"
         elif has_finance and not has_legal:
             return "FINANCE"
@@ -81,10 +140,84 @@ class QueryRouter:
             return "RAG"
         return "RAG"
 
+    def _run_vertical(self, vertical: str, question: str, department: str) -> dict:
+        """Run a single vertical engine and return its result with confidence."""
+        try:
+            if vertical == "LEGAL":
+                res = self.legal_engine.query(question)
+            elif vertical == "FINANCE":
+                res = self.finance_engine.query(question)
+            elif vertical == "HEALTHCARE":
+                res = self.healthcare_engine.query(question, department)
+            elif vertical == "REALESTATE":
+                res = self.realestate_engine.query(question, department)
+            elif vertical == "HR":
+                res = self.hr_engine.query(question, department)
+            else:
+                return {"vertical": vertical, "answer": "", "confidence": 0.0}
+            return {"vertical": vertical, "answer": res.get("answer", ""), "confidence": res.get("confidence", 0.7)}
+        except Exception as e:
+            logger.error(f"Cross-domain vertical {vertical} failed: {e}")
+            return {"vertical": vertical, "answer": f"Could not retrieve answer for {vertical}.", "confidence": 0.0}
+
+    def _merge_cross_domain(self, results: list) -> dict:
+        """Merge results from multiple verticals into a structured answer."""
+        sections = []
+        all_confidence = []
+        emoji_map = {
+            "LEGAL": "⚖️", "FINANCE": "₹", "HEALTHCARE": "🏥",
+            "REALESTATE": "🏠", "HR": "👤"
+        }
+        for r in results:
+            if r["answer"]:
+                icon = emoji_map.get(r["vertical"], "•")
+                sections.append(f"{icon} **{r['vertical'].title()} Answer** (confidence: {r['confidence']:.0%})\n{r['answer']}")
+                all_confidence.append(r["confidence"])
+        
+        merged_answer = "\n\n---\n\n".join(sections)
+        avg_confidence = sum(all_confidence) / len(all_confidence) if all_confidence else 0.0
+        return {
+            "answer": f"🔀 *This query spans multiple domains. Here is a consolidated response:*\n\n{merged_answer}",
+            "query_type": "CROSS_DOMAIN",
+            "sources": [],
+            "confidence": round(avg_confidence, 3),
+            "chunks_used": 0,
+            "query_language": "en"
+        }
+
     def route_and_query(self, question: str, department: str, filters: dict = None) -> dict:
         q_type = self.classify_query(question)
-        
-        if q_type == "LEGAL":
+
+        # Fix 4.2: Check Redis cache before any engine call (skip cache for safety-blocked queries)
+        cached = self.cache.get(question, department)
+        if cached:
+            logger.info("Returning cached response.")
+            return cached
+
+        # Cross-domain: run all matching verticals in parallel and merge
+        if q_type.startswith("CROSS_DOMAIN:"):
+            verticals = q_type.split(":", 1)[1].split(":")
+            logger.info(f"Cross-domain query detected. Running verticals in parallel: {verticals}")
+            with ThreadPoolExecutor(max_workers=len(verticals)) as ex:
+                futures = {ex.submit(self._run_vertical, v, question, department): v for v in verticals}
+                results = [f.result() for f in futures]
+            result = self._merge_cross_domain(results)
+            self.cache.set(question, department, result)
+            return result
+
+        if q_type == "HEALTHCARE":
+            result = self.healthcare_engine.query(question, department)
+            result["vertical"] = "HEALTHCARE"
+            return result
+        elif q_type == "REALESTATE":
+            result = self.realestate_engine.query(question, department)
+            result["vertical"] = "REALESTATE"
+            return result
+        elif q_type == "HR":
+            result = self.hr_engine.query(question, department)
+            result["vertical"] = "HR"
+            return result
+        elif q_type == "LEGAL":
             result = self.legal_engine.query(question)
             result["vertical"] = "LEGAL"
             return result
@@ -93,10 +226,9 @@ class QueryRouter:
             result["vertical"] = "FINANCE"
             return result
         elif q_type == "LEGAL_FINANCE":
-            # Mock fusion for now
             legal_res = self.legal_engine.query(question)
             fin_res = self.finance_engine.query(question)
-            fin_res["answer"] = legal_res["answer"] + "\n\n" + fin_res["answer"]
+            fin_res["answer"] = f"⚖️ **Legal:**\n{legal_res['answer']}\n\n---\n\n₹ **Finance:**\n{fin_res['answer']}"
             fin_res["vertical"] = "LEGAL_FINANCE"
             return fin_res
 
@@ -206,7 +338,7 @@ class QueryRouter:
                 "domain": c.get("domain")
             })
 
-        return {
+        final_result = {
             "answer": answer,
             "query_type": final_type,
             "sources": all_sources,
@@ -218,6 +350,9 @@ class QueryRouter:
             "web_query_used": web_result.get("query_used", ""),
             "query_language": rag_result.get("query_language", "en")
         }
+        # Fix 4.2: Cache the result for future identical queries
+        self.cache.set(question, department, final_result)
+        return final_result
 
     def generate_answer(self, question: str, fused_context: str, extra_system: str = "") -> str:
         fusion_prompt = (

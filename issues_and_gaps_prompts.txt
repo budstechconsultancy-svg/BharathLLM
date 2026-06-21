@@ -1,0 +1,51 @@
+================================================================================
+  BHARATLLM: ISSUES & GAPS IDENTIFICATION PROMPTS
+================================================================================
+Purpose: Run these prompts against the system (or provide them to a QA team/LLM) 
+to systematically uncover edge cases, vulnerabilities, and architectural gaps in 
+the new B2B SaaS platform.
+
+--------------------------------------------------------------------------------
+1. DOMAIN ENGINES (Healthcare, Real Estate, HR, Finance, Legal)
+--------------------------------------------------------------------------------
+PROMPT 1.1 (Cross-Domain Conflict):
+"A hospital employee (Healthcare & HR) is filing a grievance under the Industrial Disputes Act (Legal) regarding unpaid EPF (Finance). Which engine takes priority, and how does the system merge the contextual RAG data without hallucinating?"
+
+PROMPT 1.2 (Real Estate/RERA Edge Case):
+"An ongoing RERA project in Maharashtra has been stalled, and the builder is citing force majeure due to a local state ordinance. How does the Real Estate engine fetch real-time state ordinances if the vector DB was last updated a month ago?"
+
+PROMPT 1.3 (Healthcare Safety/Liability):
+"A user queries for 'home remedies for severe chest pain'. Does the Healthcare engine provide medical advice (which is a massive B2B liability gap), or does it strictly restrict itself to health scheme eligibility and administrative data?"
+
+--------------------------------------------------------------------------------
+2. B2B SAAS AUTHENTICATION & SUBSCRIPTIONS
+--------------------------------------------------------------------------------
+PROMPT 2.1 (Concurrency & Rate Limiting):
+"If a 'free' tier user with 100 quota limit sends 500 parallel API requests concurrently, how does the database handle race conditions on the `api_quota_used` column? Is there a gap where they can bypass the limit before the DB commits?"
+
+PROMPT 2.2 (API Key vs. JWT Scopes):
+"If an enterprise Zoho integration uses an API key to query the system, how do we enforce department-level scoping (e.g., restricting them to HR only) since the API key currently lacks granular role definitions?"
+
+PROMPT 2.3 (Token Revocation Gap):
+"When a user upgrades to PRO, their existing JWT token still carries the old claims until it expires. How does the system force a session refresh without requiring the user to manually log out and log back in?"
+
+--------------------------------------------------------------------------------
+3. MULTIMODAL PIPELINE (Voice & Vision)
+--------------------------------------------------------------------------------
+PROMPT 3.1 (Voice Engine Accuracy & Code-Switching):
+"How does the Whisper model handle code-switching (e.g., mixing Tamil and English in the same sentence) combined with heavy background noise? What is the fallback mechanism if transcription confidence drops below 50%?"
+
+PROMPT 3.2 (Vision Engine Complex OCR):
+"A user uploads a low-resolution, handwritten medical prescription. If the Vision Engine misinterprets the dosage or patient name, what fail-safes are in place before the system confidently outputs a generated answer?"
+
+PROMPT 3.3 (Payload Limits):
+"What happens if a user uploads a 50MB audio file or a 4K resolution TIFF image? Is there a middleware gap missing payload size restrictions before it hits the costly AI engines?"
+
+--------------------------------------------------------------------------------
+4. ARCHITECTURE & SCALABILITY GAPS
+--------------------------------------------------------------------------------
+PROMPT 4.1 (Database Connection Pooling):
+"If 10,000 Tally users sync their data at 9:00 AM, how does the system prevent PostgreSQL connection exhaustion since SQLAlchemy SessionLocal is instantiated per request without a dedicated pooling service like PgBouncer?"
+
+PROMPT 4.2 (LLM Latency & Fallback):
+"The system uses LLaMA 3.1 8B. During peak load, if local inference takes >30 seconds, does the API gateway time out? Is there a caching layer (like Redis) for identical queries to save expensive GPU cycles?"

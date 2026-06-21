@@ -126,13 +126,22 @@ async def multimodal_query(
     try:
         if audio:
             ab = await audio.read()
+            # Fix 3.3: Payload size check (20MB)
+            if len(ab) > 20 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail="Audio file too large. Maximum upload size is 20MB.")
             fmt = audio.filename.split('.')[-1] if '.' in audio.filename else "webm"
             tr = voice_engine.transcribe(ab, fmt)
+            # Fix 3.1: Handle low-confidence or unsupported language
+            if not tr.get("success", True):
+                raise HTTPException(status_code=400, detail=tr.get("message", "Audio transcription failed."))
             transcript_lang = tr["language"]
             inputs.append(f"[Voice query in {tr['language_name']}]: {tr['text']}")
             
         if image:
             ib = await image.read()
+            # Fix 3.3: Payload size check (20MB)
+            if len(ib) > 20 * 1024 * 1024:
+                raise HTTPException(status_code=413, detail="Image file too large. Maximum upload size is 20MB.")
             img_q = text or "Describe this image"
             img_res = vision_engine.process_image_query(ib, img_q, user.department, "TN")
             content = img_res.get("extracted_text") or img_res.get("image_analysis")
@@ -143,14 +152,27 @@ async def multimodal_query(
             
         unified_question = "\n".join(inputs)
         
-        # Mock Router call
-        answer = f"Multimodal Answer based on: {unified_question}"
+        # Real Router call
+        from api.main import router_instance
+        if not router_instance:
+            raise HTTPException(status_code=503, detail="Document Intelligence Router engine offline.")
+            
+        # Optional filters based on User
+        filters = {}
+        if user.state_code:
+            filters["state_code"] = user.state_code
+            
+        # Route and Query using the main pipeline
+        router_response = router_instance.route_and_query(unified_question, user.department, filters)
+        
+        answer = router_response["answer"]
         
         response = {
             "answer": answer,
             "query_id": str(uuid.uuid4()),
             "unified_query": unified_question,
-            "sources": []
+            "sources": router_response.get("sources", []),
+            "query_type": router_response.get("query_type", "MULTIMODAL")
         }
         
         if audio and voice_engine.tts_enabled:

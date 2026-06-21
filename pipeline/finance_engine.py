@@ -66,24 +66,28 @@ class FinanceEngine:
         classification = self.classify_finance_query(question)
         q_type = classification["query_type"]
         
-        answer = "I am BharatLLM Finance. Based on your query, here is the financial context."
+        rag_result = self.rag_engine.query(question, "finance")
+        answer = rag_result.get("answer", "No context found.")
+        confidence = rag_result.get("confidence", 0.95)
+        sources = rag_result.get("sources", [])
+        
         document_drafted = None
         gst_rate_info = None
         compliance_deadlines = None
         
         if q_type == "gst_query" and "rate" in question.lower():
             gst_rate_info = self.get_gst_rate("service")
-            answer = f"The GST rate is {gst_rate_info['gst_rate']}."
+            answer += f"\n\nApplicable GST Rate identified as {gst_rate_info['gst_rate']} based on logic rules."
         elif q_type == "compliance_calendar":
             compliance_deadlines = self.compliance_calendar.get_upcoming_deadlines(entity_type or "pvt_ltd")
-            answer = "Here are your upcoming compliance deadlines."
+            answer += "\n\nI have fetched your upcoming compliance deadlines."
         elif q_type == "notice_response":
             document_drafted = self.draft_notice_reply("IT Scrutiny", "Please explain...", {"query": question})
-            answer = "I have drafted the reply to the tax notice."
+            answer += "\n\nI have drafted a response to the notice for your review."
 
         return {
             "answer": answer,
-            "circulars_cited": [{"number": "Mock CBDT", "date": "2024", "title": "Circular 1", "url": "https"}],
+            "circulars_cited": [{"number": s.get("filename", "Mock CBDT"), "date": s.get("date", "2024"), "title": "Circular", "url": "https"} for s in sources],
             "sections_cited": [],
             "gst_rate_info": gst_rate_info,
             "tax_calculation": None,
@@ -91,6 +95,6 @@ class FinanceEngine:
             "document_drafted": document_drafted,
             "is_current": True,
             "superseded_warning": None,
-            "confidence": 0.95,
+            "confidence": confidence,
             "disclaimer": "This is AI-assisted research. Verify with the latest notifications and consult your professional advisor."
         }

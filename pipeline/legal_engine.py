@@ -86,31 +86,31 @@ class LegalEngine:
         classification = self.classify_legal_query(question)
         q_type = classification["query_type"]
         
-        answer = "I am BharatLLM Legal. Based on your query, here is the legal context."
+        rag_result = self.rag_engine.query(question, "legal")
+        answer = rag_result.get("answer", "No context found.")
+        confidence = rag_result.get("confidence", 0.95)
+        sources = rag_result.get("sources", [])
+        
         document_drafted = None
         limitation_info = None
         
-        if q_type == "judgement_search":
-            cases = self.search_judgements(question)
-            answer = f"Found relevant case: {cases[0]['case_name']}."
-        elif q_type == "drafting_request":
+        if q_type == "drafting_request":
             document_drafted = self.draft_legal_document("notice", {"query": question})
-            answer = "I have drafted the document."
+            answer += "\n\nI have attached a drafted document for your review."
         elif q_type == "act_lookup":
-            sec = self.lookup_act_section("Mock Act", "123")
-            answer = sec["section_text"]
+            sec = self.lookup_act_section("Act", "123")
             if sec["bns_equivalent"]:
                 answer += f"\nNote: Under new codes, this maps to BNS Section {sec['bns_equivalent']}."
 
         return {
             "answer": answer,
-            "cited_cases": [{"name": "Mock SC Case", "citation": "2024 SC 123", "court": "SC", "year": "2024", "ratio": "ratio"}],
+            "cited_cases": [{"name": s.get("filename", "Legal Source"), "citation": s.get("date", "2024"), "court": s.get("department", "SC"), "year": "2024", "ratio": ""} for s in sources],
             "cited_sections": [],
             "document_drafted": document_drafted,
             "limitation_info": limitation_info,
             "overruled_warnings": [],
             "bns_bnss_mappings": [],
             "query_type": q_type,
-            "confidence": 0.95,
+            "confidence": confidence,
             "disclaimer": "This is AI-assisted legal research. Consult a qualified advocate before taking legal action."
         }
