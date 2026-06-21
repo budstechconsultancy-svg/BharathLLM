@@ -69,11 +69,31 @@ class LoginRequest(BaseModel):
     employee_id_or_email: str
     password: str
 
+from pydantic import validator
+
 class SignupRequest(BaseModel):
     email: EmailStr
     password: str
     full_name: str
     organization_name: Optional[str] = None
+    
+    # Fix H-3: Exclude password from logs
+    model_config = {
+        "json_schema_extra": {
+            "exclude": {"password"}
+        }
+    }
+
+    # Fix C-3: Password strength validation
+    @validator("password")
+    def validate_password_strength(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters.")
+        if not any(c.isupper() for c in v):
+            raise ValueError("Password must contain at least one uppercase letter.")
+        if not any(c.isdigit() for c in v):
+            raise ValueError("Password must contain at least one digit.")
+        return v
 
 class SubscriptionUpgradeRequest(BaseModel):
     tier: str  # e.g., "pro", "enterprise"
@@ -528,6 +548,10 @@ def upload_document(
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to read file: {e}")
         
+    # Fix H-4: PDF size limit
+    if len(content) > 50 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="PDF file too large. Maximum upload size is 50MB.")
+        
     # Verify magic bytes start with %PDF
     if not content.startswith(b"%PDF"):
         raise HTTPException(status_code=400, detail="Invalid PDF file headers.")
@@ -642,6 +666,8 @@ def generate_scoped_api_key(
 
 @app.post("/agent/task")
 async def agent_task(req: AgentTaskRequest, context: dict = Depends(get_request_context)):
+    if not supervisor_instance:
+        raise HTTPException(status_code=503, detail="Supervisor Agent is offline.")
     try:
         user_id = context.get("user_id", "system")
         dept = context.get("department", "General")

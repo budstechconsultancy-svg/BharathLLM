@@ -8,6 +8,8 @@ import json
 import hashlib
 import logging
 
+from typing import Optional
+
 log = logging.getLogger("QueryCache")
 
 CACHE_TTL = int(os.getenv("CACHE_TTL_SECONDS", "3600"))
@@ -18,6 +20,12 @@ class QueryCache:
     def __init__(self):
         self._client = None
         self._enabled = False
+        self._initialized = False
+
+    def _initialize(self):
+        if self._initialized:
+            return
+        self._initialized = True
         try:
             import redis
             self._client = redis.from_url(REDIS_URL, decode_responses=True, socket_connect_timeout=2)
@@ -31,6 +39,7 @@ class QueryCache:
 
     @property
     def enabled(self) -> bool:
+        self._initialize()
         return self._enabled
 
     def _make_key(self, question: str, department: str) -> str:
@@ -38,8 +47,9 @@ class QueryCache:
         raw = f"{question.lower().strip()}||{(department or '').lower().strip()}"
         return "bharatllm:query:" + hashlib.sha256(raw.encode("utf-8")).hexdigest()
 
-    def get(self, question: str, department: str) -> dict | None:
+    def get(self, question: str, department: str) -> Optional[dict]:
         """Return cached response dict if present, else None."""
+        self._initialize()
         if not self._enabled:
             return None
         try:
@@ -56,6 +66,7 @@ class QueryCache:
 
     def set(self, question: str, department: str, response: dict) -> None:
         """Cache an LLM response dict with TTL."""
+        self._initialize()
         if not self._enabled:
             return
         try:
@@ -71,6 +82,7 @@ class QueryCache:
 
     def ping(self) -> bool:
         """Health-check the Redis connection."""
+        self._initialize()
         if not self._enabled:
             return False
         try:
@@ -80,7 +92,7 @@ class QueryCache:
 
 
 # Module-level singleton
-_cache_instance: QueryCache | None = None
+_cache_instance: Optional['QueryCache'] = None
 
 def get_cache() -> QueryCache:
     global _cache_instance

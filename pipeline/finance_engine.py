@@ -16,8 +16,8 @@ class ComplianceCalendar:
         return [{"deadline_name": "GSTR-1 monthly return", "due_date": "11th of month", "penalty_if_missed": "₹50/day"}]
 
 class FinanceEngine:
-    def __init__(self):
-        self.rag_engine = RAGEngine()
+    def __init__(self, rag_engine=None):
+        self.rag_engine = rag_engine or RAGEngine()
         self.compliance_calendar = ComplianceCalendar()
 
     def classify_finance_query(self, question: str) -> dict:

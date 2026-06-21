@@ -33,9 +33,9 @@ SAFE_RESPONSE = (
 )
 
 class HealthcareEngine:
-    def __init__(self):
+    def __init__(self, rag_engine=None):
         logger.info("Initializing HealthcareEngine...")
-        self.rag_engine = RAGEngine()
+        self.rag_engine = rag_engine or RAGEngine()
         self.drug_interaction_matrix = {}
         self.icd10_to_cghs_map = {}
         

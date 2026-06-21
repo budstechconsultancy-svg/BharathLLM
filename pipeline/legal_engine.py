@@ -5,10 +5,10 @@ from .rag_engine import RAGEngine
 from .legal_entity_extractor import extract_legal_entities
 
 class LegalEngine:
-    def __init__(self):
+    def __init__(self, rag_engine=None):
         # In a full implementation, we initialize Qdrant here.
         # For now, we mock the connections and models.
-        self.rag_engine = RAGEngine()
+        self.rag_engine = rag_engine or RAGEngine()
         
         # Load mapping dictionary
         maps_path = os.path.join(os.path.dirname(__file__), "assets", "legal_corpus", "section_maps.json")

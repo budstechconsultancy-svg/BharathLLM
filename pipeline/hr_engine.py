@@ -7,9 +7,9 @@ from .rag_engine import RAGEngine
 logger = logging.getLogger("HREngine")
 
 class HREngine:
-    def __init__(self):
+    def __init__(self, rag_engine=None):
         logger.info("Initializing HREngine...")
-        self.rag_engine = RAGEngine()
+        self.rag_engine = rag_engine or RAGEngine()
         try:
             with open("c:/TNLLM/pipeline/assets/hr_corpus/minimum_wages.json", "r") as f:
                 self.minimum_wages = json.load(f)

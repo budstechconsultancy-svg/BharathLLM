@@ -21,9 +21,9 @@ RERA_PORTAL_URLS = {
 }
 
 class RealEstateEngine:
-    def __init__(self):
+    def __init__(self, rag_engine=None):
         logger.info("Initializing RealEstateEngine...")
-        self.rag_engine = RAGEngine()
+        self.rag_engine = rag_engine or RAGEngine()
         try:
             with open("c:/TNLLM/pipeline/assets/realestate_corpus/stamp_duty_matrix.json", "r") as f:
                 self.stamp_duty_matrix = json.load(f)

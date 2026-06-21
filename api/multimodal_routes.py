@@ -42,9 +42,17 @@ async def voice_query(
         if not transcript["success"]:
             raise ValueError(transcript.get("error", "Failed to transcribe"))
             
-        # 2. Query (Mocked call to query_router for testing without full pipeline coupling here)
-        # In real code: result = query_router.route_and_query(transcript["text"], user.department, "TN")
-        answer = f"Mock Answer for transcribed text: {transcript['text']}"
+        # 2. Query via Real Router call
+        from api.main import router_instance
+        if not router_instance:
+            raise HTTPException(status_code=503, detail="Document Intelligence Router engine offline.")
+            
+        filters = {}
+        if user.get("state_code"):
+            filters["state_code"] = user.get("state_code")
+            
+        router_response = router_instance.route_and_query(transcript["text"], user.get("department"), filters)
+        answer = router_response["answer"]
         
         # 3. TTS
         audio_answer_bytes = voice_engine.text_to_speech(answer, transcript["language"])
@@ -57,8 +65,8 @@ async def voice_query(
             "answer": answer,
             "audio_answer_base64": audio_b64,
             "audio_format": "mp3",
-            "sources": [],
-            "confidence": 0.95,
+            "sources": router_response.get("sources", []),
+            "confidence": router_response.get("confidence", 0.0),
             "query_id": str(uuid.uuid4())
         }
     except Exception as e:
@@ -88,7 +96,7 @@ async def vision_query(
 ):
     try:
         image_bytes = await image.read()
-        result = vision_engine.process_image_query(image_bytes, question, user.department, "TN")
+        result = vision_engine.process_image_query(image_bytes, question, user.get("department"), "TN")
         result["query_id"] = str(uuid.uuid4())
         return result
     except Exception as e:
@@ -143,7 +151,7 @@ async def multimodal_query(
             if len(ib) > 20 * 1024 * 1024:
                 raise HTTPException(status_code=413, detail="Image file too large. Maximum upload size is 20MB.")
             img_q = text or "Describe this image"
-            img_res = vision_engine.process_image_query(ib, img_q, user.department, "TN")
+            img_res = vision_engine.process_image_query(ib, img_q, user.get("department"), "TN")
             content = img_res.get("extracted_text") or img_res.get("image_analysis")
             inputs.append(f"[Image content]: {content}")
             
@@ -159,11 +167,11 @@ async def multimodal_query(
             
         # Optional filters based on User
         filters = {}
-        if user.state_code:
-            filters["state_code"] = user.state_code
+        if user.get("state_code"):
+            filters["state_code"] = user.get("state_code")
             
         # Route and Query using the main pipeline
-        router_response = router_instance.route_and_query(unified_question, user.department, filters)
+        router_response = router_instance.route_and_query(unified_question, user.get("department"), filters)
         
         answer = router_response["answer"]
         

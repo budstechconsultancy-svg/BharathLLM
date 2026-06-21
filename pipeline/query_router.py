@@ -69,11 +69,11 @@ class QueryRouter:
         self.rag_engine = RAGEngine(model_path=model_path)
         self.sql_engine = SQLEngine(llm_engine=self.rag_engine)
         self.web_engine = WebSearchEngine()
-        self.legal_engine = LegalEngine()
-        self.finance_engine = FinanceEngine()
-        self.healthcare_engine = HealthcareEngine()
-        self.realestate_engine = RealEstateEngine()
-        self.hr_engine = HREngine()
+        self.legal_engine = LegalEngine(rag_engine=self.rag_engine)
+        self.finance_engine = FinanceEngine(rag_engine=self.rag_engine)
+        self.healthcare_engine = HealthcareEngine(rag_engine=self.rag_engine)
+        self.realestate_engine = RealEstateEngine(rag_engine=self.rag_engine)
+        self.hr_engine = HREngine(rag_engine=self.rag_engine)
         self.cache = get_cache()  # Fix 4.2: Redis response cache
         logger.info("Engines fully attached.")
 

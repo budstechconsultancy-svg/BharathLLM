@@ -34,5 +34,5 @@ def check_rate_limit(key: str, max_requests: int, window_seconds: int = 60):
                 detail="Rate limit exceeded. Try again later."
             )
     except redis.RedisError as e:
-        # Fallback in case Redis fails (log error, allow request)
-        pass
+        import logging
+        logging.getLogger("RateLimiter").warning(f"Rate limiter Redis unavailable: {e}. Allowing request.")

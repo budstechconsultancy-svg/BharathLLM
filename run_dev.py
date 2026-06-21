@@ -101,7 +101,7 @@ with Session() as session:
             email="user@tn.gov.in",
             hashed_password=hash_password("User@1234"),
             full_name="Standard User",
-            role="user",
+            role="dept_user",
             state_code="TN",
             department="Health",
             is_active=True,

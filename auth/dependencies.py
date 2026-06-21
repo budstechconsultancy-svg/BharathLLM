@@ -24,7 +24,8 @@ def get_current_user(authorization: str = Header(None), db: Session = Depends(ge
         return {
             "user_id": str(user.id),
             "department": user.department,
-            "role": user.role
+            "role": user.role,
+            "state_code": user.state_code
         }
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(e))
@@ -42,7 +43,8 @@ def get_api_key_context(x_api_key: str = Header(None), db: Session = Depends(get
         "key_hash": key_context["key_hash"],
         "department": key_context["department"],
         "role": "api_key",
-        "rate_limit": key_context["rate_limit_per_min"]
+        "rate_limit": key_context["rate_limit_per_min"],
+        "allowed_departments": key_context.get("allowed_departments")
     }
 
 class require_role:

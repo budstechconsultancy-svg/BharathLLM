@@ -10,7 +10,9 @@ from api.db_models import User, ApiKey, Session as DBSession
 # Crypt setup
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "tn_secret_default_key_val_64_chars_length")
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY:
+    raise RuntimeError("FATAL: JWT_SECRET_KEY env var not set. Server cannot start.")
 JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRY_HOURS = int(os.getenv("JWT_EXPIRY_HOURS", "8"))
 
@@ -88,7 +90,8 @@ def verify_api_key(raw_key: str, db: Session) -> dict | None:
         "key_hash": api_key_record.key_hash,
         "name": api_key_record.name,
         "department": api_key_record.department,
-        "rate_limit_per_min": api_key_record.rate_limit_per_min
+        "rate_limit_per_min": api_key_record.rate_limit_per_min,
+        "allowed_departments": api_key_record.allowed_departments
     }
 
 def change_password(user_id, current_password, new_password, db_session) -> bool:
