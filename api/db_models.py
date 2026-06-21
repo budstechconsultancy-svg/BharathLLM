@@ -165,3 +165,32 @@ class QueryFeedback(Base):
     is_correct = Column(Boolean, nullable=False)
     comments = Column(Text, nullable=True)
     timestamp = Column(DateTime, default=datetime.datetime.utcnow)
+
+# UPSC Prelims Quiz Models
+class MCQQuiz(Base):
+    __tablename__ = "upsc_mcq_quizzes"
+    id = Column(UUID_TYPE, primary_key=True, default=new_uuid)
+    topic = Column(String(255), nullable=False)
+    num_questions = Column(Integer, default=10)
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)
+
+class MCQQuestion(Base):
+    __tablename__ = "upsc_mcq_questions"
+    id = Column(UUID_TYPE, primary_key=True, default=new_uuid)
+    quiz_id = Column(UUID_TYPE, nullable=False, index=True)
+    question_text = Column(Text, nullable=False)
+    option_a = Column(String(500), nullable=False)
+    option_b = Column(String(500), nullable=False)
+    option_c = Column(String(500), nullable=False)
+    option_d = Column(String(500), nullable=False)
+    correct_option = Column(String(1), nullable=False) # A, B, C, or D
+    explanation = Column(Text, nullable=True)
+
+class MCQAttempt(Base):
+    __tablename__ = "upsc_mcq_attempts"
+    id = Column(UUID_TYPE, primary_key=True, default=new_uuid)
+    quiz_id = Column(UUID_TYPE, nullable=False, index=True)
+    user_id = Column(String(50), nullable=False, index=True)
+    score = Column(Float, nullable=False, default=0.0)
+    total_questions = Column(Integer, nullable=False)
+    attempted_at = Column(DateTime, default=datetime.datetime.utcnow)

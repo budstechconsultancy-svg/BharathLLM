@@ -28,6 +28,7 @@ from workers.job_store import get_job, list_jobs
 from agents.supervisor import SupervisorAgent
 from api.multimodal_routes import router as multimodal_router
 from api.whatsapp_webhook import router as whatsapp_router
+from api.upsc_routes import router as upsc_router
 
 # Global state trackers
 router_instance: Optional[QueryRouter] = None
@@ -198,6 +199,7 @@ app = FastAPI(
 # Mount Routers
 app.include_router(multimodal_router)
 app.include_router(whatsapp_router)
+app.include_router(upsc_router)
 
 # Enable Cors checks
 app.add_middleware(
